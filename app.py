@@ -5,7 +5,9 @@ import os
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-UPLOAD_FOLDER = "uploads"
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Простой пароль для доступа к списку и удалению
@@ -27,6 +29,7 @@ def upload():
         return jsonify({"error": "Некорректное имя файла"}), 400
 
     filepath = os.path.join(UPLOAD_FOLDER, filename)
+    print(f"[UPLOAD] Сохраняем файл: {filename} по пути {filepath}")
     file.save(filepath)
 
     base_url = "https://" + request.host
@@ -49,7 +52,8 @@ def list_files():
         return "🔒 Доступ запрещён. Укажи параметр ?password=admin123", 403
 
     files = os.listdir(UPLOAD_FOLDER)
-    files = [f for f in files if os.path.isfile(os.path.join(UPLOAD_FOLDER, f))]
+    # Исключаем скрытые файлы (начинающиеся с точки)
+    files = [f for f in files if os.path.isfile(os.path.join(UPLOAD_FOLDER, f)) and not f.startswith('.')]
 
     base_url = "https://" + request.host
     file_data = [
