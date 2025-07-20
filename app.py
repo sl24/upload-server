@@ -19,9 +19,7 @@ def is_expired(file_path):
     return datetime.now() - file_mtime > timedelta(days=DELETE_AFTER_DAYS)
 
 def generate_unique_filename(original_filename):
-    # Сохраняем расширение
     name, ext = os.path.splitext(secure_filename(original_filename))
-    # Добавляем дату и уникальный UUID4 (короткий)
     unique_id = uuid.uuid4().hex[:8]
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     new_name = f"{name}_{timestamp}_{unique_id}{ext}"
@@ -44,7 +42,13 @@ def upload():
 
     filename = generate_unique_filename(original_filename)
     filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
+
+    try:
+        print(f"[INFO] Сохраняем файл в: {filepath}")
+        file.save(filepath)
+    except Exception as e:
+        print(f"[ERROR] Ошибка при сохранении файла: {e}")
+        return jsonify({"error": "Не удалось сохранить файл"}), 500
 
     base_url = "https://" + request.host
     return jsonify({"url": f"{base_url}/files/{filename}"})
@@ -65,8 +69,9 @@ def serve_file(filename):
         try:
             if DELETE_AFTER_DOWNLOAD and os.path.exists(filepath):
                 os.remove(filepath)
+                print(f"[INFO] Файл удалён после скачивания: {filepath}")
         except Exception as e:
-            print(f"Ошибка удаления файла: {e}")
+            print(f"[ERROR] Ошибка удаления файла: {e}")
         return response
 
     return send_from_directory(
@@ -83,7 +88,6 @@ def list_files():
     if password != ADMIN_PASSWORD:
         return "🔒 Доступ запрещён. Укажи параметр ?password=admin123", 403
 
-    # Удаляем просроченные файлы при списке
     for f in os.listdir(UPLOAD_FOLDER):
         file_path = os.path.join(UPLOAD_FOLDER, f)
         if os.path.isfile(file_path) and f[0] != '.':
@@ -154,6 +158,7 @@ def delete_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     if os.path.exists(filepath):
         os.remove(filepath)
+        print(f"[INFO] Файл удалён вручную: {filename}")
         return redirect(url_for('list_files', password=password))
     else:
         return f"Файл {filename} не найден", 404
@@ -171,6 +176,7 @@ def delete_all_files():
             os.remove(file_path)
             deleted_files.append(f)
 
+    print(f"[INFO] Удалены все файлы: {', '.join(deleted_files)}")
     return f"Удалены файлы: {', '.join(deleted_files)}<br><a href='/list?password={password}'>Вернуться к списку файлов</a>"
 
 
