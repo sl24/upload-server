@@ -1,6 +1,6 @@
 Flask==2.2.2
 werkzeug==2.2.2
-aiohttp==3.8.1
+aiohttp==3.7.4
 pyrogram==2.0.62
 tgcrypto==1.2.0  # заменена версия
 
