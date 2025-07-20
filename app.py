@@ -54,7 +54,6 @@ def upload():
         print(f"[ERROR] Ошибка при сохранении: {e}")
         return jsonify({"error": f"Ошибка сохранения файла: {str(e)}"}), 500
 
-    # Используем корректный базовый URL
     base_url = request.url_root.rstrip('/')
     return jsonify({"url": f"{base_url}/files/{filename}"})
 
@@ -91,12 +90,17 @@ def confirm_download(filename):
                 background-color: #f44336;
             }}
         </style>
+        <script>
+            function closeTab() {{
+                window.open('', '_self').close();
+            }}
+        </script>
     </head>
     <body>
         <h2>📁 Файл готов к скачиванию</h2>
         <p><strong>{filename}</strong></p>
         <a class="button" href="/download/{filename}">📥 Скачать</a>
-        <a class="button cancel" href="/">❌ Отказаться</a>
+        <button class="button cancel" onclick="closeTab()">❌ Отказаться</button>
     </body>
     </html>
     """
