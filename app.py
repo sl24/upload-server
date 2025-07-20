@@ -93,13 +93,16 @@ def confirm_download(filename):
         <script>
             function closeTab() {{
                 window.open('', '_self').close();
+                setTimeout(() => {{
+                    alert('Пожалуйста, закройте вкладку вручную');
+                }}, 500);
             }}
         </script>
     </head>
     <body>
         <h2>📁 Файл готов к скачиванию</h2>
         <p><strong>{filename}</strong></p>
-        <a class="button" href="/download/{filename}">📥 Скачать</a>
+        <a class="button" href="/download/{filename}" target="_blank">📥 Скачать</a>
         <button class="button cancel" onclick="closeTab()">❌ Отказаться</button>
     </body>
     </html>
