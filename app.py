@@ -12,7 +12,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ADMIN_PASSWORD = "admin123"
 DELETE_AFTER_DAYS = 7
-DELETE_AFTER_DOWNLOAD = True
+DELETE_AFTER_DOWNLOAD = False
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mp3', 'pdf', 'txt', 'zip', 'rar', 'docx'}
 
