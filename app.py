@@ -31,28 +31,37 @@ def home():
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    print("[UPLOAD] POST /upload получите запрос")  # Начало обработки
     if 'file' not in request.files:
+        print("[UPLOAD] Ошибка: файл не найден в request.files")
         return jsonify({"error": "Файл не найден"}), 400
 
     file = request.files['file']
     original_filename = file.filename
+    print(f"[UPLOAD] Исходное имя: {original_filename!r}")
 
     if not original_filename:
+        print("[UPLOAD] Ошибка: неверное исходное имя")
         return jsonify({"error": "Некорректное имя файла"}), 400
 
     filename = generate_unique_filename(original_filename)
     filepath = os.path.join(UPLOAD_FOLDER, filename)
+    print(f"[UPLOAD] Новое имя будет: {filename!r}; путь: {filepath}")
 
     try:
-        print(f"[INFO] Сохраняем файл в: {filepath}")
         file.save(filepath)
     except Exception as e:
-        print(f"[ERROR] Ошибка при сохранении файла: {e}")
-        return jsonify({"error": "Не удалось сохранить файл"}), 500
+        print(f"[UPLOAD] ERROR: исключение при сохранении: {e}")
+        return jsonify({"error": f"Не удалось сохранить файл: {e}"}), 500
+
+    exists = os.path.exists(filepath)
+    size = os.path.getsize(filepath) if exists else None
+    print(f"[UPLOAD] Сохранено? {exists}; размер: {size} байт")
 
     base_url = "https://" + request.host
-    return jsonify({"url": f"{base_url}/files/{filename}"})
-
+    url = f"{base_url}/files/{filename}"
+    print(f"[UPLOAD] Отправляю URL: {url}")
+    return jsonify({"url": url})
 
 @app.route('/files/<filename>')
 def serve_file(filename):
