@@ -1,8 +1,9 @@
-from flask import Flask, request, send_from_directory, jsonify, render_template_string, redirect, url_for, abort, after_this_request
+from flask import Flask, request, send_from_directory, jsonify, render_template_string, redirect, url_for, abort, after_this_request, Response
 import os
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 import uuid
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -10,7 +11,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Админ данные для Basic Auth
+ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
+
 DELETE_AFTER_DAYS = 7
 DELETE_AFTER_DOWNLOAD = True
 
@@ -25,17 +29,32 @@ def is_expired(file_path):
 
 def generate_unique_filename(original_filename):
     name, ext = os.path.splitext(secure_filename(original_filename))
-    unique_suffix = uuid.uuid4().hex[:6]  # короткий уникальный суффикс
-    return f"{name}_{unique_suffix}{ext}"
+    unique_id = uuid.uuid4().hex[:8]
+    return f"{name}_{unique_id}{ext}"
+
+# --- Basic Auth функции ---
+def check_auth(username, password):
+    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
+
+def authenticate():
+    return Response(
+        'Требуется авторизация', 401,
+        {'WWW-Authenticate': 'Basic realm="Login Required"'}
+    )
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return authenticate()
+        return f(*args, **kwargs)
+    return decorated
+# ---------------------------
 
 @app.route('/')
 def home():
-    return '''
-    <div style="display:flex; height:100vh; justify-content:center; align-items:center; background:#222; color:#eee; font-family:sans-serif; flex-direction:column;">
-        <h1>🚀 Файлообменник на Render работает!</h1>
-        <p>Загружай файлы и делись ссылками.</p>
-    </div>
-    '''
+    return "🚀 Файлообменник на Render работает!"
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -61,7 +80,6 @@ def upload():
     base_url = "https://" + request.host
     return jsonify({"url": f"{base_url}/files/{filename}"})
 
-
 @app.route('/files/<filename>')
 def serve_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -72,66 +90,27 @@ def serve_file(filename):
         os.remove(filepath)
         abort(404)
 
-    html_template = '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Файл для скачивания</title>
-        <style>
-            body { font-family: sans-serif; background: #f9f9f9; text-align: center; padding: 50px; }
-            .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: inline-block; }
-            button { padding: 10px 20px; margin: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
-            .download-btn { background-color: #4CAF50; color: white; }
-            .decline-btn { background-color: #f44336; color: white; }
-        </style>
-        <script>
-            function downloadFile() {
-                window.location.href = '/files/{{ filename }}?download=1';
-            }
-            function decline() {
-                window.location.href = '/';
-            }
-        </script>
-    </head>
-    <body>
-        <div class="container">
-            <h2>Ваш файл готов к скачиванию:</h2>
-            <p><strong>{{ filename }}</strong></p>
-            <button class="download-btn" onclick="downloadFile()">Скачать</button>
-            <button class="decline-btn" onclick="decline()">Отказаться</button>
-        </div>
-    </body>
-    </html>
-    '''
+    @after_this_request
+    def remove_file(response):
+        try:
+            if DELETE_AFTER_DOWNLOAD and os.path.exists(filepath):
+                os.remove(filepath)
+                print(f"[INFO] Удалён файл после скачивания: {filename}")
+        except Exception as e:
+            print(f"[ERROR] Ошибка удаления после скачивания: {e}")
+        return response
 
-    # Если есть параметр download=1, сразу отдаем файл с заголовком скачивания
-    if request.args.get("download") == "1":
-        @after_this_request
-        def remove_file(response):
-            try:
-                if DELETE_AFTER_DOWNLOAD and os.path.exists(filepath):
-                    os.remove(filepath)
-                    print(f"[INFO] Удалён файл после скачивания: {filename}")
-            except Exception as e:
-                print(f"[ERROR] Ошибка удаления после скачивания: {e}")
-            return response
-
-        return send_from_directory(
-            UPLOAD_FOLDER,
-            filename,
-            as_attachment=True,
-            download_name=filename
-        )
-
-    return render_template_string(html_template, filename=filename)
-
+    return send_from_directory(
+        UPLOAD_FOLDER,
+        filename,
+        as_attachment=True,
+        download_name=filename
+    )
 
 @app.route('/list', methods=['GET'])
+@requires_auth
 def list_files():
-    password = request.args.get("password", "")
-    if password != ADMIN_PASSWORD:
-        return "🔒 Доступ запрещён. Укажи параметр ?password=admin123", 403
-
+    # Удаляем устаревшие файлы
     for f in os.listdir(UPLOAD_FOLDER):
         path = os.path.join(UPLOAD_FOLDER, f)
         if os.path.isfile(path) and is_expired(path):
@@ -145,7 +124,7 @@ def list_files():
         {
             "name": f,
             "url": f"{base_url}/files/{f}",
-            "delete_url": f"/delete/{f}?password={password}"
+            "delete_url": f"/delete/{f}"
         }
         for f in files
     ]
@@ -185,33 +164,25 @@ def list_files():
         <p>Нет файлов.</p>
         {% endif %}
 
-        <a class="button delete-all" href="/delete_all?password={{ password }}" onclick="return confirm('Удалить все файлы?')">Удалить все</a>
+        <a class="button delete-all" href="/delete_all" onclick="return confirm('Удалить все файлы?')">Удалить все</a>
     </body>
     </html>
     """
-    return render_template_string(html_template, files=file_data, password=password)
-
+    return render_template_string(html_template, files=file_data)
 
 @app.route('/delete/<filename>')
+@requires_auth
 def delete_file(filename):
-    password = request.args.get("password", "")
-    if password != ADMIN_PASSWORD:
-        return "🔒 Неверный пароль", 403
-
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     if os.path.exists(filepath):
         os.remove(filepath)
         print(f"[ADMIN] Удалён файл: {filename}")
-        return redirect(url_for('list_files', password=password))
+        return redirect(url_for('list_files'))
     return "Файл не найден", 404
 
-
 @app.route('/delete_all')
+@requires_auth
 def delete_all_files():
-    password = request.args.get("password", "")
-    if password != ADMIN_PASSWORD:
-        return "🔒 Неверный пароль", 403
-
     deleted = []
     for f in os.listdir(UPLOAD_FOLDER):
         path = os.path.join(UPLOAD_FOLDER, f)
@@ -220,8 +191,7 @@ def delete_all_files():
             deleted.append(f)
 
     print(f"[ADMIN] Удалены все файлы: {', '.join(deleted)}")
-    return f"Удалено файлов: {len(deleted)}<br><a href='/list?password={password}'>Назад</a>"
-
+    return f"Удалено файлов: {len(deleted)}<br><a href='/list'>Назад</a>"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
