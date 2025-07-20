@@ -222,6 +222,5 @@ def delete_all_files():
     print(f"[ADMIN] Удалены все файлы: {', '.join(deleted)}")
     return f"Удалено файлов: {len(deleted)}<br><a href='/list?password={password}'>Назад</a>"
 
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
