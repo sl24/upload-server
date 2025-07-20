@@ -25,6 +25,8 @@ def is_expired(file_path):
 
 def generate_unique_filename(original_filename):
     name, ext = os.path.splitext(secure_filename(original_filename))
+
+    # Генерируем короткий уникальный хеш для всех файлов
     unique_suffix = uuid.uuid4().hex[:6]  # короткий уникальный суффикс
     return f"{name}_{unique_suffix}{ext}"
 
