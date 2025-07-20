@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: file-uploader
-    env: python
-    plan: free
-    buildCommand: ""
-    startCommand: python server/app.py
