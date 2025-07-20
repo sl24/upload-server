@@ -22,7 +22,8 @@ def upload():
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
-    base_url = request.url_root.rstrip('/')
+    # Формируем безопасную ссылку с HTTPS
+    base_url = "https://" + request.host
     return jsonify({"url": f"{base_url}/files/{filename}"})
 
 @app.route('/files/<filename>')
