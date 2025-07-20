@@ -25,49 +25,17 @@ def is_expired(file_path):
 
 def generate_unique_filename(original_filename):
     name, ext = os.path.splitext(secure_filename(original_filename))
-    unique_id = uuid.uuid4().hex[:8]
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{name}_{timestamp}_{unique_id}{ext}"
+    unique_suffix = uuid.uuid4().hex[:6]  # короткий уникальный суффикс
+    return f"{name}_{unique_suffix}{ext}"
 
 @app.route('/')
 def home():
-    html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Файлообменник</title>
-        <style>
-            body, html {
-                height: 100%;
-                margin: 0;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                color: white;
-                flex-direction: column;
-            }
-            .logo {
-                font-size: 72px;
-                font-weight: bold;
-                margin-bottom: 20px;
-                user-select: none;
-                text-shadow: 2px 2px 10px rgba(0,0,0,0.3);
-            }
-            .subtitle {
-                font-size: 24px;
-                opacity: 0.8;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="logo">📁 FileShare</div>
-        <div class="subtitle">Простой и удобный файлообменник</div>
-    </body>
-    </html>
-    """
-    return html
+    return '''
+    <div style="display:flex; height:100vh; justify-content:center; align-items:center; background:#222; color:#eee; font-family:sans-serif; flex-direction:column;">
+        <h1>🚀 Файлообменник на Render работает!</h1>
+        <p>Загружай файлы и делись ссылками.</p>
+    </div>
+    '''
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -90,12 +58,12 @@ def upload():
         print(f"[ERROR] Ошибка при сохранении: {e}")
         return jsonify({"error": f"Ошибка сохранения файла: {str(e)}"}), 500
 
-    base_url = request.url_root.rstrip('/')
+    base_url = "https://" + request.host
     return jsonify({"url": f"{base_url}/files/{filename}"})
 
 
 @app.route('/files/<filename>')
-def confirm_download(filename):
+def serve_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     if not os.path.exists(filepath) or not allowed_file(filename):
         abort(404)
@@ -104,66 +72,58 @@ def confirm_download(filename):
         os.remove(filepath)
         abort(404)
 
-    html_template = f"""
+    html_template = '''
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Подтвердите скачивание</title>
+        <title>Файл для скачивания</title>
         <style>
-            body {{ font-family: sans-serif; text-align: center; margin-top: 80px; }}
-            .button {{
-                padding: 12px 24px;
-                margin: 10px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                font-size: 16px;
-                cursor: pointer;
-                text-decoration: none;
-            }}
-            .cancel {{
-                background-color: #f44336;
-            }}
+            body { font-family: sans-serif; background: #f9f9f9; text-align: center; padding: 50px; }
+            .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: inline-block; }
+            button { padding: 10px 20px; margin: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+            .download-btn { background-color: #4CAF50; color: white; }
+            .decline-btn { background-color: #f44336; color: white; }
         </style>
+        <script>
+            function downloadFile() {
+                window.location.href = '/files/{{ filename }}?download=1';
+            }
+            function decline() {
+                window.location.href = '/';
+            }
+        </script>
     </head>
     <body>
-        <h2>📁 Файл готов к скачиванию</h2>
-        <p><strong>{filename}</strong></p>
-        <a class="button" href="/download/{filename}" target="_blank">📥 Скачать</a>
-        <a class="button cancel" href="/">❌ Отказаться</a>
+        <div class="container">
+            <h2>Ваш файл готов к скачиванию:</h2>
+            <p><strong>{{ filename }}</strong></p>
+            <button class="download-btn" onclick="downloadFile()">Скачать</button>
+            <button class="decline-btn" onclick="decline()">Отказаться</button>
+        </div>
     </body>
     </html>
-    """
-    return html_template
+    '''
 
+    # Если есть параметр download=1, сразу отдаем файл с заголовком скачивания
+    if request.args.get("download") == "1":
+        @after_this_request
+        def remove_file(response):
+            try:
+                if DELETE_AFTER_DOWNLOAD and os.path.exists(filepath):
+                    os.remove(filepath)
+                    print(f"[INFO] Удалён файл после скачивания: {filename}")
+            except Exception as e:
+                print(f"[ERROR] Ошибка удаления после скачивания: {e}")
+            return response
 
-@app.route('/download/<filename>')
-def download_file(filename):
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    if not os.path.exists(filepath) or not allowed_file(filename):
-        abort(404)
+        return send_from_directory(
+            UPLOAD_FOLDER,
+            filename,
+            as_attachment=True,
+            download_name=filename
+        )
 
-    if is_expired(filepath):
-        os.remove(filepath)
-        abort(404)
-
-    @after_this_request
-    def remove_file(response):
-        try:
-            if DELETE_AFTER_DOWNLOAD and os.path.exists(filepath):
-                os.remove(filepath)
-                print(f"[INFO] Удалён файл после скачивания: {filename}")
-        except Exception as e:
-            print(f"[ERROR] Ошибка удаления после скачивания: {e}")
-        return response
-
-    return send_from_directory(
-        UPLOAD_FOLDER,
-        filename,
-        as_attachment=True,
-        download_name=filename
-    )
+    return render_template_string(html_template, filename=filename)
 
 
 @app.route('/list', methods=['GET'])
@@ -180,7 +140,7 @@ def list_files():
     files = [f for f in os.listdir(UPLOAD_FOLDER)
              if os.path.isfile(os.path.join(UPLOAD_FOLDER, f)) and not f.startswith('.')]
 
-    base_url = request.url_root.rstrip('/')
+    base_url = "https://" + request.host
     file_data = [
         {
             "name": f,
