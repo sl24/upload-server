@@ -2,6 +2,7 @@ from flask import Flask, request, send_from_directory, jsonify, render_template_
 import os
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
+import uuid
 
 app = Flask(__name__)
 
@@ -17,6 +18,15 @@ def is_expired(file_path):
     file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
     return datetime.now() - file_mtime > timedelta(days=DELETE_AFTER_DAYS)
 
+def generate_unique_filename(original_filename):
+    # Сохраняем расширение
+    name, ext = os.path.splitext(secure_filename(original_filename))
+    # Добавляем дату и уникальный UUID4 (короткий)
+    unique_id = uuid.uuid4().hex[:8]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    new_name = f"{name}_{timestamp}_{unique_id}{ext}"
+    return new_name
+
 @app.route('/')
 def home():
     return "Файлообменник на Render работает!"
@@ -27,11 +37,12 @@ def upload():
         return jsonify({"error": "Файл не найден"}), 400
 
     file = request.files['file']
-    filename = secure_filename(file.filename)
+    original_filename = file.filename
 
-    if not filename:
+    if not original_filename:
         return jsonify({"error": "Некорректное имя файла"}), 400
 
+    filename = generate_unique_filename(original_filename)
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
