@@ -1,4 +1,4 @@
-from flask import Flask, request, send_from_directory, jsonify, render_template_string, redirect, url_for, abort
+from flask import Flask, request, send_from_directory, jsonify, render_template_string, redirect, url_for, abort, after_this_request
 import os
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
@@ -49,20 +49,21 @@ def serve_file(filename):
         os.remove(filepath)
         abort(404)
 
-    response = send_from_directory(
+    @after_this_request
+    def remove_file(response):
+        try:
+            if DELETE_AFTER_DOWNLOAD and os.path.exists(filepath):
+                os.remove(filepath)
+        except Exception as e:
+            print(f"Ошибка удаления файла: {e}")
+        return response
+
+    return send_from_directory(
         UPLOAD_FOLDER,
         filename,
         as_attachment=True,
         download_name=filename
     )
-
-    if DELETE_AFTER_DOWNLOAD:
-        @response.call_on_close
-        def remove_file():
-            if os.path.exists(filepath):
-                os.remove(filepath)
-
-    return response
 
 
 @app.route('/list', methods=['GET'])
