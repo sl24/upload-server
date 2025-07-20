@@ -6,6 +6,12 @@ import uuid
 
 app = Flask(__name__)
 
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5 MB
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({"error": "Файл слишком большой. Лимит — 5MB."}), 413
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
