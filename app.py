@@ -34,7 +34,7 @@ def generate_unique_filename(original_filename):
 def home():
     return '''
     <div style="display:flex; height:100vh; justify-content:center; align-items:center; background:#222; color:#eee; font-family:sans-serif; flex-direction:column;">
-        <h1>?? Файлообменник на Render работает!</h1>
+        <h1>Файлообменник на Render работает!</h1>
         <p>Загружай файлы и делись ссылками.</p>
     </div>
     '''
@@ -132,7 +132,7 @@ def serve_file(filename):
 def list_files():
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
-        return "?? Доступ запрещён. Укажи параметр ?password=admin123", 403
+        return "Доступ запрещён", 403
 
     for f in os.listdir(UPLOAD_FOLDER):
         path = os.path.join(UPLOAD_FOLDER, f)
@@ -167,7 +167,7 @@ def list_files():
         </style>
     </head>
     <body>
-        <h2>?? Загруженные файлы</h2>
+        <h2>Загруженные файлы</h2>
         {% if files %}
         <table>
             <tr>
@@ -198,7 +198,7 @@ def list_files():
 def delete_file(filename):
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
-        return "?? Неверный пароль", 403
+        return "Неверный пароль", 403
 
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     if os.path.exists(filepath):
@@ -212,7 +212,7 @@ def delete_file(filename):
 def delete_all_files():
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
-        return "?? Неверный пароль", 403
+        return "Неверный пароль", 403
 
     deleted = []
     for f in os.listdir(UPLOAD_FOLDER):
