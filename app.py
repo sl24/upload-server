@@ -19,16 +19,24 @@ def upload():
 
     file = request.files['file']
     filename = secure_filename(file.filename)
+
+    if not filename:
+        return jsonify({"error": "Некорректное имя файла"}), 400
+
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
-    # Формируем безопасную ссылку с HTTPS
     base_url = "https://" + request.host
     return jsonify({"url": f"{base_url}/files/{filename}"})
 
 @app.route('/files/<filename>')
 def serve_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
+    return send_from_directory(
+        UPLOAD_FOLDER,
+        filename,
+        as_attachment=True,
+        download_name=filename  # Гарантирует имя и расширение при скачивании
+    )
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
