@@ -2,6 +2,7 @@ services:
   - type: web
     name: file-uploader
     env: python
+    python_version: "3.10.10"  # или 3.10
     plan: free
     buildCommand: ""
     startCommand: python server/app.py
