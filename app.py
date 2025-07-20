@@ -31,7 +31,43 @@ def generate_unique_filename(original_filename):
 
 @app.route('/')
 def home():
-    return "🚀 Файлообменник на Render работает!"
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Файлообменник</title>
+        <style>
+            body, html {
+                height: 100%;
+                margin: 0;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                color: white;
+                flex-direction: column;
+            }
+            .logo {
+                font-size: 72px;
+                font-weight: bold;
+                margin-bottom: 20px;
+                user-select: none;
+                text-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+            }
+            .subtitle {
+                font-size: 24px;
+                opacity: 0.8;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="logo">📁 FileShare</div>
+        <div class="subtitle">Простой и удобный файлообменник</div>
+    </body>
+    </html>
+    """
+    return html
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -90,20 +126,12 @@ def confirm_download(filename):
                 background-color: #f44336;
             }}
         </style>
-        <script>
-            function closeTab() {{
-                window.open('', '_self').close();
-                setTimeout(() => {{
-                    alert('Пожалуйста, закройте вкладку вручную');
-                }}, 500);
-            }}
-        </script>
     </head>
     <body>
         <h2>📁 Файл готов к скачиванию</h2>
         <p><strong>{filename}</strong></p>
         <a class="button" href="/download/{filename}" target="_blank">📥 Скачать</a>
-        <button class="button cancel" onclick="closeTab()">❌ Отказаться</button>
+        <a class="button cancel" href="/">❌ Отказаться</a>
     </body>
     </html>
     """
