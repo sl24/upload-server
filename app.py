@@ -12,7 +12,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ADMIN_PASSWORD = "admin123"
 DELETE_AFTER_DAYS = 7
-DELETE_AFTER_DOWNLOAD = False
+DELETE_AFTER_DOWNLOAD = True
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mp3', 'pdf', 'txt', 'zip', 'rar', 'docx'}
 
@@ -54,12 +54,57 @@ def upload():
         print(f"[ERROR] Ошибка при сохранении: {e}")
         return jsonify({"error": f"Ошибка сохранения файла: {str(e)}"}), 500
 
-    base_url = "https://" + request.host
+    # Используем корректный базовый URL
+    base_url = request.url_root.rstrip('/')
     return jsonify({"url": f"{base_url}/files/{filename}"})
 
 
 @app.route('/files/<filename>')
-def serve_file(filename):
+def confirm_download(filename):
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    if not os.path.exists(filepath) or not allowed_file(filename):
+        abort(404)
+
+    if is_expired(filepath):
+        os.remove(filepath)
+        abort(404)
+
+    html_template = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Подтвердите скачивание</title>
+        <style>
+            body {{ font-family: sans-serif; text-align: center; margin-top: 80px; }}
+            .button {{
+                padding: 12px 24px;
+                margin: 10px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 16px;
+                cursor: pointer;
+                text-decoration: none;
+            }}
+            .cancel {{
+                background-color: #f44336;
+            }}
+        </style>
+    </head>
+    <body>
+        <h2>📁 Файл готов к скачиванию</h2>
+        <p><strong>{filename}</strong></p>
+        <a class="button" href="/download/{filename}">📥 Скачать</a>
+        <a class="button cancel" href="/">❌ Отказаться</a>
+    </body>
+    </html>
+    """
+    return html_template
+
+
+@app.route('/download/<filename>')
+def download_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     if not os.path.exists(filepath) or not allowed_file(filename):
         abort(404)
@@ -100,7 +145,7 @@ def list_files():
     files = [f for f in os.listdir(UPLOAD_FOLDER)
              if os.path.isfile(os.path.join(UPLOAD_FOLDER, f)) and not f.startswith('.')]
 
-    base_url = "https://" + request.host
+    base_url = request.url_root.rstrip('/')
     file_data = [
         {
             "name": f,
