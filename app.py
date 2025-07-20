@@ -12,7 +12,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ADMIN_PASSWORD = "admin123"
 DELETE_AFTER_DAYS = 7
-DELETE_AFTER_DOWNLOAD = True  # если True — файл удаляется сразу после скачивания
+DELETE_AFTER_DOWNLOAD = False  # если True — файл не удаляется сразу после скачивания
 
 def is_expired(file_path):
     file_mtime = datetime.fromtimestamp(os.path.getmtime(file_path))
