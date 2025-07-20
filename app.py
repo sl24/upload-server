@@ -6,21 +6,15 @@ import uuid
 
 app = Flask(__name__)
 
-app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5 MB
-
-@app.errorhandler(413)
-def request_entity_too_large(error):
-    return jsonify({"error": "Файл слишком большой. Лимит — 5MB."}), 413
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ADMIN_PASSWORD = "admin123"
 DELETE_AFTER_DAYS = 7
-DELETE_AFTER_DOWNLOAD = False
+DELETE_AFTER_DOWNLOAD = True
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mp3', 'pdf', 'txt', 'zip', 'rar', 'docx', 'py'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mp3', 'pdf', 'txt', 'zip', 'rar', 'docx'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -34,12 +28,6 @@ def generate_unique_filename(original_filename):
     unique_id = uuid.uuid4().hex[:8]
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return f"{name}_{timestamp}_{unique_id}{ext}"
-
-def get_today_folder():
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    folder_path = os.path.join(UPLOAD_FOLDER, today_str)
-    os.makedirs(folder_path, exist_ok=True)
-    return folder_path
 
 @app.route('/')
 def home():
@@ -57,23 +45,20 @@ def upload():
         return jsonify({"error": "Недопустимый тип файла"}), 400
 
     filename = generate_unique_filename(original_filename)
-    today_folder = get_today_folder()
-    filepath = os.path.join(today_folder, filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
 
     try:
         file.save(filepath)
-        print(f"[UPLOAD] Сохранён файл: {filename} в папке {today_folder}")
+        print(f"[UPLOAD] Сохранён файл: {filename}")
     except Exception as e:
         print(f"[ERROR] Ошибка при сохранении: {e}")
         return jsonify({"error": f"Ошибка сохранения файла: {str(e)}"}), 500
 
     base_url = "https://" + request.host
-    # Ссылка с датой папкой в пути
-    relative_path = os.path.relpath(filepath, UPLOAD_FOLDER).replace("\\", "/")
-    return jsonify({"url": f"{base_url}/files/{relative_path}"})
+    return jsonify({"url": f"{base_url}/files/{filename}"})
 
 
-@app.route('/files/<path:filename>')
+@app.route('/files/<filename>')
 def serve_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     if not os.path.exists(filepath) or not allowed_file(filename):
@@ -93,13 +78,11 @@ def serve_file(filename):
             print(f"[ERROR] Ошибка удаления после скачивания: {e}")
         return response
 
-    directory = os.path.dirname(filepath)
-    fname = os.path.basename(filepath)
     return send_from_directory(
-        directory,
-        fname,
+        UPLOAD_FOLDER,
+        filename,
         as_attachment=True,
-        download_name=fname
+        download_name=filename
     )
 
 
@@ -109,28 +92,23 @@ def list_files():
     if password != ADMIN_PASSWORD:
         return "🔒 Доступ запрещён. Укажи параметр ?password=admin123", 403
 
-    # Чистим просроченные файлы по всем датам
-    for date_folder in os.listdir(UPLOAD_FOLDER):
-        folder_path = os.path.join(UPLOAD_FOLDER, date_folder)
-        if os.path.isdir(folder_path):
-            for f in os.listdir(folder_path):
-                path = os.path.join(folder_path, f)
-                if os.path.isfile(path) and is_expired(path):
-                    os.remove(path)
+    for f in os.listdir(UPLOAD_FOLDER):
+        path = os.path.join(UPLOAD_FOLDER, f)
+        if os.path.isfile(path) and is_expired(path):
+            os.remove(path)
 
-    # Собираем все файлы со всеми подпапками
-    files = []
-    for date_folder in sorted(os.listdir(UPLOAD_FOLDER), reverse=True):
-        folder_path = os.path.join(UPLOAD_FOLDER, date_folder)
-        if os.path.isdir(folder_path):
-            for f in os.listdir(folder_path):
-                if not f.startswith('.'):
-                    files.append({
-                        "name": f,
-                        "date_folder": date_folder,
-                        "url": f"https://{request.host}/files/{date_folder}/{f}",
-                        "delete_url": f"/delete/{date_folder}/{f}?password={password}"
-                    })
+    files = [f for f in os.listdir(UPLOAD_FOLDER)
+             if os.path.isfile(os.path.join(UPLOAD_FOLDER, f)) and not f.startswith('.')]
+
+    base_url = "https://" + request.host
+    file_data = [
+        {
+            "name": f,
+            "url": f"{base_url}/files/{f}",
+            "delete_url": f"/delete/{f}?password={password}"
+        }
+        for f in files
+    ]
 
     html_template = """
     <!DOCTYPE html>
@@ -151,14 +129,12 @@ def list_files():
         {% if files %}
         <table>
             <tr>
-                <th>Дата</th>
                 <th>Имя</th>
                 <th>Скачать</th>
                 <th>Удалить</th>
             </tr>
             {% for file in files %}
             <tr>
-                <td>{{ file.date_folder }}</td>
                 <td>{{ file.name }}</td>
                 <td><a href="{{ file.url }}" target="_blank">Скачать</a></td>
                 <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm('Удалить {{ file.name }}?')">Удалить</a></td>
@@ -173,19 +149,19 @@ def list_files():
     </body>
     </html>
     """
-    return render_template_string(html_template, files=files, password=password)
+    return render_template_string(html_template, files=file_data, password=password)
 
 
-@app.route('/delete/<date_folder>/<filename>')
-def delete_file(date_folder, filename):
+@app.route('/delete/<filename>')
+def delete_file(filename):
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
         return "🔒 Неверный пароль", 403
 
-    filepath = os.path.join(UPLOAD_FOLDER, date_folder, filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
     if os.path.exists(filepath):
         os.remove(filepath)
-        print(f"[ADMIN] Удалён файл: {filename} из папки {date_folder}")
+        print(f"[ADMIN] Удалён файл: {filename}")
         return redirect(url_for('list_files', password=password))
     return "Файл не найден", 404
 
@@ -197,14 +173,11 @@ def delete_all_files():
         return "🔒 Неверный пароль", 403
 
     deleted = []
-    for date_folder in os.listdir(UPLOAD_FOLDER):
-        folder_path = os.path.join(UPLOAD_FOLDER, date_folder)
-        if os.path.isdir(folder_path):
-            for f in os.listdir(folder_path):
-                path = os.path.join(folder_path, f)
-                if os.path.isfile(path) and not f.startswith('.'):
-                    os.remove(path)
-                    deleted.append(f)
+    for f in os.listdir(UPLOAD_FOLDER):
+        path = os.path.join(UPLOAD_FOLDER, f)
+        if os.path.isfile(path) and not f.startswith('.'):
+            os.remove(path)
+            deleted.append(f)
 
     print(f"[ADMIN] Удалены все файлы: {', '.join(deleted)}")
     return f"Удалено файлов: {len(deleted)}<br><a href='/list?password={password}'>Назад</a>"
