@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from flask import Flask, request, send_from_directory, jsonify
 import os
 from werkzeug.utils import secure_filename
@@ -8,12 +10,12 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/')
 def home():
-    return "Файлообменник на Render работает!"
+    return "Р¤Р°Р№Р»РѕРѕР±РјРµРЅРЅРёРє РЅР° Render СЂР°Р±РѕС‚Р°РµС‚!"
 
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
-        return jsonify({"error": "Файл не найден"}), 400
+        return jsonify({"error": "Р¤Р°Р№Р» РЅРµ РЅР°Р№РґРµРЅ"}), 400
 
     file = request.files['file']
     filename = secure_filename(file.filename)
