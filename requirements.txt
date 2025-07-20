@@ -1,5 +1,4 @@
 --only-binary :all: aiohttp
-build-essential
 Flask==2.2.2
 werkzeug==2.2.2
 aiohttp==3.7.4
