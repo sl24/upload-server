@@ -204,12 +204,14 @@ def serve_file(filename):
 
     return render_template_string(html_template, filename=filename)
 
+
 @app.route('/list', methods=['GET'])
 def list_files():
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
         return "Доступ запрещён", 403
 
+    # Удаляем просроченные файлы
     for f in os.listdir(UPLOAD_FOLDER):
         path = os.path.join(UPLOAD_FOLDER, f)
         if os.path.isfile(path) and is_expired(path):
@@ -228,7 +230,7 @@ def list_files():
         for f in files
     ]
 
-    html_template = """
+    html_template = '''
     <!DOCTYPE html>
     <html>
     <head>
@@ -272,7 +274,7 @@ def list_files():
         <a class="button delete-all" href="/delete_all?password={{ password }}" onclick="return confirm('Удалить все файлы?')">Удалить все</a>
     </body>
     </html>
-    """
+    '''
     return render_template_string(html_template, files=file_data, password=password)
 
 @app.route('/delete/<filename>')
