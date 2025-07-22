@@ -67,11 +67,12 @@ def serve_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
     if not os.path.exists(filepath) or not allowed_file(filename):
-        return file_not_found_page()
-
-    if is_expired(filepath):
-        os.remove(filepath)
-        return file_not_found_page()
+        return render_template_string('''
+            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <h2>Файл удалён или не найден</h2>
+                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
+            </div>
+        '''), 404
 
     if request.args.get("download") == "1":
         @after_this_request
@@ -84,17 +85,9 @@ def serve_file(filename):
                 print(f"[ERROR] Ошибка удаления после скачивания: {e}")
             return response
 
-        return send_from_directory(
-            UPLOAD_FOLDER,
-            filename,
-            as_attachment=True,
-            download_name=filename
-        )
-
-    if request.args.get("from_page") == "1":
         return render_template_string('''
             <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <h2>Файл скачан и удалён</h2>
+                <h2>Файл загружен и удалён с сервера</h2>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
             </div>
         ''')
@@ -110,13 +103,12 @@ def serve_file(filename):
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 text-align: center;
-                padding: 30px 50px 20px 50px;
+                padding: 50px;
                 height: 100vh;
                 display: flex;
-                justify-content: flex-start;
+                justify-content: center;
                 align-items: center;
                 margin: 0;
-                flex-direction: column;
             }
             .container {
                 background: rgba(255, 255, 255, 0.15);
@@ -124,10 +116,7 @@ def serve_file(filename):
                 border-radius: 12px;
                 box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
                 backdrop-filter: blur(8.5px);
-                -webkit-backdrop-filter: blur(8.5px);
-                border: 1px solid rgba(255, 255, 255, 0.18);
                 width: 300px;
-                margin-top: 40px;
             }
             button {
                 padding: 12px 25px;
@@ -136,41 +125,14 @@ def serve_file(filename):
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
-                transition: background-color 0.3s ease;
             }
-            .download-btn {
-                background-color: #4CAF50;
-                color: white;
-            }
-            .download-btn:hover {
-                background-color: #45a049;
-            }
-            .decline-btn {
-                background-color: #f44336;
-                color: white;
-            }
-            .decline-btn:hover {
-                background-color: #da190b;
-            }
-            .note {
-                margin-top: 15px;
-                color: #ddd;
-                font-style: italic;
-                font-size: 14px;
-            }
+            .download-btn { background-color: #4CAF50; color: white; }
+            .decline-btn { background-color: #f44336; color: white; }
+            .note { margin-top: 15px; color: #ddd; font-style: italic; font-size: 14px; }
         </style>
         <script>
             function downloadFile() {
-                const link = document.createElement('a');
-                link.href = '/files/{{ filename }}?download=1';
-                link.download = '{{ filename }}';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-
-                setTimeout(() => {
-                    window.location.href = '/files/{{ filename }}?from_page=1';
-                }, 500);
+                window.location.href = '/files/{{ filename }}?download=1';
             }
             function decline() {
                 window.location.href = '/';
@@ -188,17 +150,28 @@ def serve_file(filename):
     </body>
     </html>
     '''
-
     return render_template_string(html_template, filename=filename)
 
 
-def file_not_found_page():
-    return render_template_string('''
-        <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-            <h2>Файл удалён или не найден</h2>
-            <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
-        </div>
-    '''), 404
+@app.route('/list', methods=['GET'])
+def list_files():
+    password = request.args.get("password", "")
+    if password != ADMIN_PASSWORD:
+        return "Доступ запрещён", 403
+
+    files = [f for f in os.listdir(UPLOAD_FOLDER)
+             if os.path.isfile(os.path.join(UPLOAD_FOLDER, f))]
+
+    base_url = "https://" + request.host
+    file_data = [
+        {
+            "name": f,
+            "url": f"{base_url}/files/{f}",
+        }
+        for f in files
+    ]
+
+    return jsonify(file_data)
 
 
 if __name__ == "__main__":
