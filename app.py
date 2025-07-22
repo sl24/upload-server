@@ -32,8 +32,8 @@ def generate_unique_filename(original_filename):
 def home():
     return '''
     <div style="display:flex; height:100vh; justify-content:center; align-items:center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#eee; font-family:sans-serif; flex-direction:column;">
-        <h1>Файлообменник на Render работает!</h1>
-        <p>Загружай файлы и делись ссылками.</p>
+        <h1>Ты на главной!</h1>
+        <p>Ничего лишнего.</p>
     </div>
     '''
 
@@ -67,9 +67,9 @@ def serve_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
     if not os.path.exists(filepath) or not allowed_file(filename):
-        # Страница, когда файл удалён или не найден
+        # Страница, когда файл удалён или не найден — с таким же фоном, как на главной
         return render_template_string('''
-            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                 <h2>Файл удалён или не найден</h2>
                 <p>Этот файл был скачан и удалён, или не существует.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
@@ -79,7 +79,7 @@ def serve_file(filename):
     if is_expired(filepath):
         os.remove(filepath)
         return render_template_string('''
-            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                 <h2>Файл удалён или не найден</h2>
                 <p>Срок хранения файла истёк, и он был удалён.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
@@ -158,8 +158,8 @@ def serve_file(filename):
             <h2>Ваш файл готов к скачиванию:</h2>
             <p><strong>{{ filename }}</strong></p>
             <button class="download-btn" onclick="downloadFile()">Скачать</button>
-            <button class="decline-btn" onclick="decline()">Отказаться</button>
-            <p class="note">Файл можно скачать только 1 раз. После скачивания он будет удалён.</p>
+            <button class="decline-btn" onclick="decline()">Отмена</button>
+            <p class="note">Автоудаление файла после загрузки.</p>
         </div>
     </body>
     </html>
