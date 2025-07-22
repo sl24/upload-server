@@ -67,36 +67,39 @@ def serve_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
     if not os.path.exists(filepath) or not allowed_file(filename):
+        # Страница для файла удалён или не найден с фоном
         return render_template_string('''
-            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                 <h2>Файл удалён или не найден</h2>
+                <p>Этот файл был скачан и удалён, или не существует.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
             </div>
         '''), 404
 
     if is_expired(filepath):
         os.remove(filepath)
-        return redirect(url_for('serve_file', filename=filename))
-
-    if request.args.get("download") == "1":
-        @after_this_request
-        def remove_file(response):
-            try:
-                if DELETE_AFTER_DOWNLOAD and os.path.exists(filepath):
-                    os.remove(filepath)
-                    print(f"[INFO] Удалён файл после скачивания: {filename}")
-            except Exception as e:
-                print(f"[ERROR] Ошибка удаления после скачивания: {e}")
-            return response
-
         return render_template_string('''
-            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <h2>Файл был скачан и удалён</h2>
+            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <h2>Файл удалён или не найден</h2>
+                <p>Срок хранения файла истёк, и он был удалён.</p>
+                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
+            </div>
+        '''), 404
+
+    # Обрабатываем параметр show_downloaded для страницы после скачивания
+    if request.args.get("show_downloaded") == "1":
+        return render_template_string('''
+            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <h2>Файл скачан и удалён</h2>
+                <p>Спасибо! Файл был успешно загружен.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
             </div>
         ''')
 
-    # страница перед скачиванием
+    # Отображение страницы с кнопками скачивания
     html_template = '''
     <!DOCTYPE html>
     <html>
@@ -108,22 +111,20 @@ def serve_file(filename):
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 text-align: center;
-                padding: 50px;
+                padding: 50px 10px 10px 10px;
                 height: 100vh;
                 display: flex;
-                justify-content: center;
+                justify-content: flex-start;
                 align-items: flex-start;
                 margin: 0;
             }
             .container {
-                margin-top: 50px;
+                margin-top: 20px;
                 background: rgba(255, 255, 255, 0.15);
                 padding: 30px;
                 border-radius: 12px;
                 max-width: 50%;
                 width: auto;
-                word-wrap: break-word;
-                overflow-wrap: break-word;
                 box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
             }
             .filename {
@@ -132,22 +133,32 @@ def serve_file(filename):
                 white-space: nowrap;
                 display: block;
                 max-width: 100%;
+                margin-bottom: 20px;
+                font-weight: bold;
+                font-size: 18px;
             }
             button {
                 padding: 12px 25px;
-                margin: 10px;
+                margin: 10px 10px 10px 0;
                 font-size: 16px;
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
+                transition: background-color 0.3s ease;
             }
             .download-btn {
                 background-color: #4CAF50;
                 color: white;
             }
+            .download-btn:hover {
+                background-color: #45a049;
+            }
             .decline-btn {
                 background-color: #f44336;
                 color: white;
+            }
+            .decline-btn:hover {
+                background-color: #da190b;
             }
             .note {
                 margin-top: 15px;
@@ -158,7 +169,16 @@ def serve_file(filename):
         </style>
         <script>
             function downloadFile() {
-                window.location.href = '/files/{{ filename }}?download=1';
+                // Создаём скрытый iframe для скачивания файла
+                var iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = '/files/{{ filename }}?download=1';
+                document.body.appendChild(iframe);
+
+                // Через 3 секунды перенаправим пользователя на страницу "скачано"
+                setTimeout(function() {
+                    window.location.href = '/files/{{ filename }}?show_downloaded=1';
+                }, 3000);
             }
             function decline() {
                 window.location.href = '/';
@@ -167,8 +187,7 @@ def serve_file(filename):
     </head>
     <body>
         <div class="container">
-            <h2>Ваш файл готов к скачиванию:</h2>
-            <p class="filename"><strong>{{ filename }}</strong></p>
+            <span class="filename" title="{{ filename }}">{{ filename }}</span>
             <button class="download-btn" onclick="downloadFile()">Скачать</button>
             <button class="decline-btn" onclick="decline()">Отмена</button>
             <p class="note">Автоудаление файла после загрузки.</p>
@@ -176,6 +195,25 @@ def serve_file(filename):
     </body>
     </html>
     '''
+
+    if request.args.get("download") == "1":
+        # Отдаём файл и удаляем после
+        @after_this_request
+        def remove_file(response):
+            try:
+                if DELETE_AFTER_DOWNLOAD and os.path.exists(filepath):
+                    os.remove(filepath)
+                    print(f"[INFO] Удалён файл после скачивания: {filename}")
+            except Exception as e:
+                print(f"[ERROR] Ошибка удаления после скачивания: {e}")
+            return response
+
+        return send_from_directory(
+            UPLOAD_FOLDER,
+            filename,
+            as_attachment=True,
+            download_name=filename
+        )
 
     return render_template_string(html_template, filename=filename)
 
@@ -204,17 +242,18 @@ def list_files():
         for f in files
     ]
 
-    html_template = '''
+    html_template = """
+    <!DOCTYPE html>
     <html>
     <head>
         <title>Файлы</title>
         <style>
-            body { font-family: sans-serif; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;}
-            table { border-collapse: collapse; width: 100%; background: white; color: black;}
-            th, td { padding: 8px; border: 1px solid #ddd; }
+            body { font-family: sans-serif; padding: 20px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { padding: 8px; border: 1px solid #ddd; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             th { background-color: #f2f2f2; }
             a.button { padding: 4px 10px; background: #f44336; color: white; text-decoration: none; border-radius: 4px; }
-            a.delete-all { margin-top: 15px; display: inline-block; background: #e91e63; padding: 4px 10px; text-decoration:none; color:white; border-radius:4px; }
+            a.delete-all { margin-top: 15px; display: inline-block; background: #e91e63; }
         </style>
     </head>
     <body>
@@ -228,7 +267,7 @@ def list_files():
             </tr>
             {% for file in files %}
             <tr>
-                <td>{{ file.name }}</td>
+                <td title="{{ file.name }}">{{ file.name }}</td>
                 <td><a href="{{ file.url }}" target="_blank">Скачать</a></td>
                 <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm('Удалить {{ file.name }}?')">Удалить</a></td>
             </tr>
@@ -237,12 +276,12 @@ def list_files():
         {% else %}
         <p>Нет файлов.</p>
         {% endif %}
-        <a class="delete-all" href="/delete_all?password={{ password }}" onclick="return confirm('Удалить все файлы?')">Удалить все</a>
+
+        <a class="button delete-all" href="/delete_all?password={{ password }}" onclick="return confirm('Удалить все файлы?')">Удалить все</a>
     </body>
     </html>
-    '''
+    """
     return render_template_string(html_template, files=file_data, password=password)
-
 
 @app.route('/delete/<filename>')
 def delete_file(filename):
@@ -256,7 +295,6 @@ def delete_file(filename):
         print(f"[ADMIN] Удалён файл: {filename}")
         return redirect(url_for('list_files', password=password))
     return "Файл не найден", 404
-
 
 @app.route('/delete_all')
 def delete_all_files():
