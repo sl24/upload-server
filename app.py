@@ -31,17 +31,7 @@ def generate_unique_filename(original_filename):
 @app.route('/')
 def home():
     return '''
-    <div style="
-        display:flex; 
-        height:100vh; 
-        justify-content:center; 
-        align-items:center; 
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color:#eee; 
-        font-family:sans-serif; 
-        flex-direction:column;
-        text-align: center;
-    ">
+    <div style="display:flex; height:100vh; justify-content:center; align-items:center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#eee; font-family:sans-serif; flex-direction:column;">
         <h1>Файлообменник на Render работает!</h1>
         <p>Загружай файлы и делись ссылками.</p>
     </div>
@@ -71,15 +61,30 @@ def upload():
     base_url = "https://" + request.host
     return jsonify({"url": f"{base_url}/files/{filename}"})
 
+
 @app.route('/files/<filename>')
 def serve_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
+
     if not os.path.exists(filepath) or not allowed_file(filename):
-        abort(404)
+        # Страница, когда файл удалён или не найден
+        return render_template_string('''
+            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <h2>Файл удалён или не найден</h2>
+                <p>Этот файл был скачан и удалён, или не существует.</p>
+                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
+            </div>
+        '''), 404
 
     if is_expired(filepath):
         os.remove(filepath)
-        abort(404)
+        return render_template_string('''
+            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <h2>Файл удалён или не найден</h2>
+                <p>Срок хранения файла истёк, и он был удалён.</p>
+                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
+            </div>
+        '''), 404
 
     html_template = '''
     <!DOCTYPE html>
@@ -87,11 +92,57 @@ def serve_file(filename):
     <head>
         <title>Файл для скачивания</title>
         <style>
-            body { font-family: sans-serif; background: #f9f9f9; text-align: center; padding: 50px; }
-            .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: inline-block; }
-            button { padding: 10px 20px; margin: 10px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
-            .download-btn { background-color: #4CAF50; color: white; }
-            .decline-btn { background-color: #f44336; color: white; }
+            body {
+                font-family: sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-align: center;
+                padding: 50px;
+                height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin: 0;
+            }
+            .container {
+                background: rgba(255, 255, 255, 0.15);
+                padding: 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+                backdrop-filter: blur(8.5px);
+                -webkit-backdrop-filter: blur(8.5px);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                width: 300px;
+            }
+            button {
+                padding: 12px 25px;
+                margin: 10px;
+                font-size: 16px;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background-color 0.3s ease;
+            }
+            .download-btn {
+                background-color: #4CAF50;
+                color: white;
+            }
+            .download-btn:hover {
+                background-color: #45a049;
+            }
+            .decline-btn {
+                background-color: #f44336;
+                color: white;
+            }
+            .decline-btn:hover {
+                background-color: #da190b;
+            }
+            .note {
+                margin-top: 15px;
+                color: #ddd;
+                font-style: italic;
+                font-size: 14px;
+            }
         </style>
         <script>
             function downloadFile() {
@@ -108,6 +159,7 @@ def serve_file(filename):
             <p><strong>{{ filename }}</strong></p>
             <button class="download-btn" onclick="downloadFile()">Скачать</button>
             <button class="decline-btn" onclick="decline()">Отказаться</button>
+            <p class="note">Файл можно скачать только 1 раз. После скачивания он будет удалён.</p>
         </div>
     </body>
     </html>
@@ -132,6 +184,7 @@ def serve_file(filename):
         )
 
     return render_template_string(html_template, filename=filename)
+
 
 @app.route('/list', methods=['GET'])
 def list_files():
@@ -198,6 +251,7 @@ def list_files():
     """
     return render_template_string(html_template, files=file_data, password=password)
 
+
 @app.route('/delete/<filename>')
 def delete_file(filename):
     password = request.args.get("password", "")
@@ -210,6 +264,7 @@ def delete_file(filename):
         print(f"[ADMIN] Удалён файл: {filename}")
         return redirect(url_for('list_files', password=password))
     return "Файл не найден", 404
+
 
 @app.route('/delete_all')
 def delete_all_files():
