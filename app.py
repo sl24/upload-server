@@ -102,13 +102,13 @@ def serve_file(filename):
     <head>
         <title>Файл для скачивания</title>
         <style>
-            body {{
+            body {
                 {common_bg_style}
                 padding-top: 40px;
                 align-items: center;
                 justify-content: flex-start;
-            }}
-            .container {{
+            }
+            .container {
                 background: rgba(255, 255, 255, 0.15);
                 padding: 30px;
                 border-radius: 12px;
@@ -117,8 +117,9 @@ def serve_file(filename):
                 box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
                 overflow: hidden;
                 text-align: center;
-            }}
-            .filename {{
+                margin: 0 auto;
+            }
+            .filename {
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
@@ -126,8 +127,8 @@ def serve_file(filename):
                 font-size: 18px;
                 margin-bottom: 20px;
                 display: block;
-            }}
-            button {{
+            }
+            button {
                 padding: 12px 25px;
                 margin: 10px 10px 10px 0;
                 font-size: 16px;
@@ -135,47 +136,47 @@ def serve_file(filename):
                 border-radius: 5px;
                 cursor: pointer;
                 transition: background-color 0.3s ease;
-            }}
-            .download-btn {{
+            }
+            .download-btn {
                 background-color: #4CAF50;
                 color: white;
-            }}
-            .download-btn:hover {{
+            }
+            .download-btn:hover {
                 background-color: #45a049;
-            }}
-            .decline-btn {{
+            }
+            .decline-btn {
                 background-color: #f44336;
                 color: white;
-            }}
-            .decline-btn:hover {{
+            }
+            .decline-btn:hover {
                 background-color: #da190b;
-            }}
-            .note {{
+            }
+            .note {
                 margin-top: 15px;
                 color: #ddd;
                 font-style: italic;
                 font-size: 14px;
-            }}
+            }
         </style>
         <script>
-            function downloadFile() {{
+            function downloadFile() {
                 var iframe = document.createElement('iframe');
                 iframe.style.display = 'none';
-                iframe.src = '/files/{{{{ filename }}}}?download=1';
+                iframe.src = '/files/{{ filename }}?download=1';
                 document.body.appendChild(iframe);
 
-                setTimeout(function() {{
-                    window.location.href = '/files/{{{{ filename }}}}?show_downloaded=1';
-                }}, 3000);
-            }}
-            function decline() {{
+                setTimeout(function() {
+                    window.location.href = '/files/{{ filename }}?show_downloaded=1';
+                }, 3000);
+            }
+            function decline() {
                 window.location.href = '/';
-            }}
+            }
         </script>
     </head>
     <body>
         <div class="container">
-            <span class="filename" title="{{{{ filename }}}}">{{{{ filename }}}}</span>
+            <span class="filename" title="{{ filename }}">{{ filename }}</span>
             <button class="download-btn" onclick="downloadFile()">Скачать</button>
             <button class="decline-btn" onclick="decline()">Отмена</button>
             <p class="note">Автоудаление файла после загрузки.</p>
@@ -236,18 +237,18 @@ def list_files():
     <head>
         <title>Файлы</title>
         <style>
-            body {{ font-family: sans-serif; padding: 20px; }}
-            table {{ border-collapse: collapse; width: 100%; }}
-            th, td {{ padding: 8px; border: 1px solid #ddd; max-width: 300px; }}
-            th {{ background-color: #f2f2f2; }}
-            a.button {{ padding: 4px 10px; background: #f44336; color: white; text-decoration: none; border-radius: 4px; }}
-            a.delete-all {{ margin-top: 15px; display: inline-block; background: #e91e63; }}
-            td.filename-cell {{
+            body { font-family: sans-serif; padding: 20px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { padding: 8px; border: 1px solid #ddd; max-width: 300px; }
+            th { background-color: #f2f2f2; }
+            a.button { padding: 4px 10px; background: #f44336; color: white; text-decoration: none; border-radius: 4px; }
+            a.delete-all { margin-top: 15px; display: inline-block; background: #e91e63; }
+            td.filename-cell {
                 max-width: 400px;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
-            }}
+            }
         </style>
     </head>
     <body>
