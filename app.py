@@ -1,4 +1,4 @@
-from flask import Flask, request, send_from_directory, jsonify, render_template_string, redirect, url_for, abort, after_this_request
+from flask import Flask, request, send_from_directory, jsonify, render_template_string, redirect, url_for, after_this_request
 import os
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
@@ -69,32 +69,32 @@ def serve_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
     if not os.path.exists(filepath) or not allowed_file(filename):
-        return render_template_string(f'''
-            <div style="{COMMON_BG_STYLE}">
+        return render_template_string('''
+            <div style="{{ common_bg_style }}">
                 <h2>Файл удалён или не найден</h2>
                 <p>Этот файл был скачан и удалён, или не существует.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
             </div>
-        '''), 404
+        ''', common_bg_style=COMMON_BG_STYLE), 404
 
     if is_expired(filepath):
         os.remove(filepath)
-        return render_template_string(f'''
-            <div style="{COMMON_BG_STYLE}">
+        return render_template_string('''
+            <div style="{{ common_bg_style }}">
                 <h2>Файл удалён или не найден</h2>
                 <p>Срок хранения файла истёк, и он был удалён.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
             </div>
-        '''), 404
+        ''', common_bg_style=COMMON_BG_STYLE), 404
 
     if request.args.get("show_downloaded") == "1":
-        return render_template_string(f'''
-            <div style="{COMMON_BG_STYLE}">
+        return render_template_string('''
+            <div style="{{ common_bg_style }}">
                 <h2>Файл скачан и удалён</h2>
                 <p>Спасибо! Файл был успешно загружен.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
             </div>
-        ''')
+        ''', common_bg_style=COMMON_BG_STYLE)
 
     html_template = '''
     <!DOCTYPE html>
@@ -103,7 +103,7 @@ def serve_file(filename):
         <title>Файл для скачивания</title>
         <style>
             body {
-                {common_bg_style}
+                {{ common_bg_style }}
                 padding-top: 40px;
                 align-items: center;
                 justify-content: flex-start;
@@ -183,7 +183,7 @@ def serve_file(filename):
         </div>
     </body>
     </html>
-    '''.format(common_bg_style=COMMON_BG_STYLE)
+    '''
 
     if request.args.get("download") == "1":
         @after_this_request
@@ -203,7 +203,7 @@ def serve_file(filename):
             download_name=filename
         )
 
-    return render_template_string(html_template, filename=filename)
+    return render_template_string(html_template, filename=filename, common_bg_style=COMMON_BG_STYLE)
 
 
 @app.route('/list', methods=['GET'])
@@ -289,13 +289,13 @@ def delete_file(filename):
         os.remove(filepath)
         print(f"[ADMIN] Удалён файл: {filename}")
         return redirect(url_for('list_files', password=password))
-    return render_template_string(f'''
-        <div style="{COMMON_BG_STYLE}">
+    return render_template_string('''
+        <div style="{{ common_bg_style }}">
             <h2>Файл не найден</h2>
             <p>Невозможно удалить: файл не найден.</p>
-            <a href="/list?password={password}" style="color:#fff; text-decoration: underline; font-weight: bold;">Назад к списку файлов</a>
+            <a href="/list?password={{ password }}" style="color:#fff; text-decoration: underline; font-weight: bold;">Назад к списку файлов</a>
         </div>
-    '''), 404
+    ''', common_bg_style=COMMON_BG_STYLE, password=password), 404
 
 @app.route('/delete_all')
 def delete_all_files():
@@ -311,12 +311,12 @@ def delete_all_files():
             deleted.append(f)
 
     print(f"[ADMIN] Удалены все файлы: {', '.join(deleted)}")
-    return render_template_string(f'''
-        <div style="{COMMON_BG_STYLE}">
-            <h2>Удалено файлов: {len(deleted)}</h2>
-            <a href="/list?password={password}" style="color:#fff; text-decoration: underline; font-weight: bold;">Назад к списку файлов</a>
+    return render_template_string('''
+        <div style="{{ common_bg_style }}">
+            <h2>Удалено файлов: {{ count }}</h2>
+            <a href="/list?password={{ password }}" style="color:#fff; text-decoration: underline; font-weight: bold;">Назад к списку файлов</a>
         </div>
-    ''')
+    ''', common_bg_style=COMMON_BG_STYLE, count=len(deleted), password=password)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
