@@ -70,20 +70,13 @@ def serve_file(filename):
         return render_template_string('''
             <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                 <h2>Файл удалён или не найден</h2>
-                <p>Этот файл был скачан и удалён, или не существует.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
             </div>
         '''), 404
 
     if is_expired(filepath):
         os.remove(filepath)
-        return render_template_string('''
-            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <h2>Файл удалён или не найден</h2>
-                <p>Срок хранения файла истёк, и он был удалён.</p>
-                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
-            </div>
-        '''), 404
+        return redirect(url_for('serve_file', filename=filename))
 
     if request.args.get("download") == "1":
         @after_this_request
@@ -103,6 +96,7 @@ def serve_file(filename):
             </div>
         ''')
 
+    # страница перед скачиванием
     html_template = '''
     <!DOCTYPE html>
     <html>
@@ -126,12 +120,11 @@ def serve_file(filename):
                 background: rgba(255, 255, 255, 0.15);
                 padding: 30px;
                 border-radius: 12px;
-                box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-                backdrop-filter: blur(8.5px);
                 max-width: 50%;
                 width: auto;
                 word-wrap: break-word;
                 overflow-wrap: break-word;
+                box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
             }
             .filename {
                 overflow: hidden;
@@ -147,7 +140,6 @@ def serve_file(filename):
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
-                transition: background-color 0.3s ease;
             }
             .download-btn {
                 background-color: #4CAF50;
@@ -212,7 +204,44 @@ def list_files():
         for f in files
     ]
 
-    return jsonify(file_data)
+    html_template = '''
+    <html>
+    <head>
+        <title>Файлы</title>
+        <style>
+            body { font-family: sans-serif; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;}
+            table { border-collapse: collapse; width: 100%; background: white; color: black;}
+            th, td { padding: 8px; border: 1px solid #ddd; }
+            th { background-color: #f2f2f2; }
+            a.button { padding: 4px 10px; background: #f44336; color: white; text-decoration: none; border-radius: 4px; }
+            a.delete-all { margin-top: 15px; display: inline-block; background: #e91e63; padding: 4px 10px; text-decoration:none; color:white; border-radius:4px; }
+        </style>
+    </head>
+    <body>
+        <h2>Загруженные файлы</h2>
+        {% if files %}
+        <table>
+            <tr>
+                <th>Имя</th>
+                <th>Скачать</th>
+                <th>Удалить</th>
+            </tr>
+            {% for file in files %}
+            <tr>
+                <td>{{ file.name }}</td>
+                <td><a href="{{ file.url }}" target="_blank">Скачать</a></td>
+                <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm('Удалить {{ file.name }}?')">Удалить</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>Нет файлов.</p>
+        {% endif %}
+        <a class="delete-all" href="/delete_all?password={{ password }}" onclick="return confirm('Удалить все файлы?')">Удалить все</a>
+    </body>
+    </html>
+    '''
+    return render_template_string(html_template, files=file_data, password=password)
 
 
 @app.route('/delete/<filename>')
