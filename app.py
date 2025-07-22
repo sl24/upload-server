@@ -25,15 +25,23 @@ def is_expired(file_path):
 
 def generate_unique_filename(original_filename):
     name, ext = os.path.splitext(secure_filename(original_filename))
-
-    # Генерируем короткий уникальный хеш для всех файлов
-    unique_suffix = uuid.uuid4().hex[:6]  # короткий уникальный суффикс
+    unique_suffix = uuid.uuid4().hex[:6]
     return f"{name}_{unique_suffix}{ext}"
 
 @app.route('/')
 def home():
     return '''
-    <div style="display:flex; height:100vh; justify-content:center; align-items:center; background:#222; color:#eee; font-family:sans-serif; flex-direction:column;">
+    <div style="
+        display:flex; 
+        height:100vh; 
+        justify-content:center; 
+        align-items:center; 
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color:#eee; 
+        font-family:sans-serif; 
+        flex-direction:column;
+        text-align: center;
+    ">
         <h1>Файлообменник на Render работает!</h1>
         <p>Загружай файлы и делись ссылками.</p>
     </div>
@@ -62,7 +70,6 @@ def upload():
 
     base_url = "https://" + request.host
     return jsonify({"url": f"{base_url}/files/{filename}"})
-
 
 @app.route('/files/<filename>')
 def serve_file(filename):
@@ -106,7 +113,6 @@ def serve_file(filename):
     </html>
     '''
 
-    # Если есть параметр download=1, сразу отдаем файл с заголовком скачивания
     if request.args.get("download") == "1":
         @after_this_request
         def remove_file(response):
@@ -126,7 +132,6 @@ def serve_file(filename):
         )
 
     return render_template_string(html_template, filename=filename)
-
 
 @app.route('/list', methods=['GET'])
 def list_files():
@@ -193,7 +198,6 @@ def list_files():
     """
     return render_template_string(html_template, files=file_data, password=password)
 
-
 @app.route('/delete/<filename>')
 def delete_file(filename):
     password = request.args.get("password", "")
@@ -206,7 +210,6 @@ def delete_file(filename):
         print(f"[ADMIN] Удалён файл: {filename}")
         return redirect(url_for('list_files', password=password))
     return "Файл не найден", 404
-
 
 @app.route('/delete_all')
 def delete_all_files():
