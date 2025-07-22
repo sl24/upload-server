@@ -28,6 +28,8 @@ def generate_unique_filename(original_filename):
     unique_suffix = uuid.uuid4().hex[:6]
     return f"{name}_{unique_suffix}{ext}"
 
+COMMON_BG_STYLE = "background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; margin: 0; padding: 20px;"
+
 @app.route('/')
 def home():
     return '''
@@ -67,10 +69,8 @@ def serve_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
     if not os.path.exists(filepath) or not allowed_file(filename):
-        # Страница для файла удалён или не найден с фоном
-        return render_template_string('''
-            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        return render_template_string(f'''
+            <div style="{COMMON_BG_STYLE}">
                 <h2>Файл удалён или не найден</h2>
                 <p>Этот файл был скачан и удалён, или не существует.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
@@ -79,65 +79,55 @@ def serve_file(filename):
 
     if is_expired(filepath):
         os.remove(filepath)
-        return render_template_string('''
-            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        return render_template_string(f'''
+            <div style="{COMMON_BG_STYLE}">
                 <h2>Файл удалён или не найден</h2>
                 <p>Срок хранения файла истёк, и он был удалён.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
             </div>
         '''), 404
 
-    # Обрабатываем параметр show_downloaded для страницы после скачивания
     if request.args.get("show_downloaded") == "1":
-        return render_template_string('''
-            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        return render_template_string(f'''
+            <div style="{COMMON_BG_STYLE}">
                 <h2>Файл скачан и удалён</h2>
                 <p>Спасибо! Файл был успешно загружен.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
             </div>
         ''')
 
-    # Отображение страницы с кнопками скачивания
     html_template = '''
     <!DOCTYPE html>
     <html>
     <head>
         <title>Файл для скачивания</title>
         <style>
-            body {
-                font-family: sans-serif;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                text-align: center;
-                padding: 50px 10px 10px 10px;
-                height: 100vh;
-                display: flex;
+            body {{
+                {common_bg_style}
+                padding-top: 40px;
+                align-items: center;
                 justify-content: flex-start;
-                align-items: flex-start;
-                margin: 0;
-            }
-            .container {
-                margin-top: 20px;
+            }}
+            .container {{
                 background: rgba(255, 255, 255, 0.15);
                 padding: 30px;
                 border-radius: 12px;
-                max-width: 50%;
-                width: auto;
+                max-width: 50vw;
+                width: 100%;
                 box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            }
-            .filename {
+                overflow: hidden;
+                text-align: center;
+            }}
+            .filename {{
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
-                display: block;
-                max-width: 100%;
-                margin-bottom: 20px;
                 font-weight: bold;
                 font-size: 18px;
-            }
-            button {
+                margin-bottom: 20px;
+                display: block;
+            }}
+            button {{
                 padding: 12px 25px;
                 margin: 10px 10px 10px 0;
                 font-size: 16px;
@@ -145,59 +135,56 @@ def serve_file(filename):
                 border-radius: 5px;
                 cursor: pointer;
                 transition: background-color 0.3s ease;
-            }
-            .download-btn {
+            }}
+            .download-btn {{
                 background-color: #4CAF50;
                 color: white;
-            }
-            .download-btn:hover {
+            }}
+            .download-btn:hover {{
                 background-color: #45a049;
-            }
-            .decline-btn {
+            }}
+            .decline-btn {{
                 background-color: #f44336;
                 color: white;
-            }
-            .decline-btn:hover {
+            }}
+            .decline-btn:hover {{
                 background-color: #da190b;
-            }
-            .note {
+            }}
+            .note {{
                 margin-top: 15px;
                 color: #ddd;
                 font-style: italic;
                 font-size: 14px;
-            }
+            }}
         </style>
         <script>
-            function downloadFile() {
-                // Создаём скрытый iframe для скачивания файла
+            function downloadFile() {{
                 var iframe = document.createElement('iframe');
                 iframe.style.display = 'none';
-                iframe.src = '/files/{{ filename }}?download=1';
+                iframe.src = '/files/{{{{ filename }}}}?download=1';
                 document.body.appendChild(iframe);
 
-                // Через 3 секунды перенаправим пользователя на страницу "скачано"
-                setTimeout(function() {
-                    window.location.href = '/files/{{ filename }}?show_downloaded=1';
-                }, 3000);
-            }
-            function decline() {
+                setTimeout(function() {{
+                    window.location.href = '/files/{{{{ filename }}}}?show_downloaded=1';
+                }}, 3000);
+            }}
+            function decline() {{
                 window.location.href = '/';
-            }
+            }}
         </script>
     </head>
     <body>
         <div class="container">
-            <span class="filename" title="{{ filename }}">{{ filename }}</span>
+            <span class="filename" title="{{{{ filename }}}}">{{{{ filename }}}}</span>
             <button class="download-btn" onclick="downloadFile()">Скачать</button>
             <button class="decline-btn" onclick="decline()">Отмена</button>
             <p class="note">Автоудаление файла после загрузки.</p>
         </div>
     </body>
     </html>
-    '''
+    '''.format(common_bg_style=COMMON_BG_STYLE)
 
     if request.args.get("download") == "1":
-        # Отдаём файл и удаляем после
         @after_this_request
         def remove_file(response):
             try:
@@ -216,7 +203,6 @@ def serve_file(filename):
         )
 
     return render_template_string(html_template, filename=filename)
-
 
 @app.route('/list', methods=['GET'])
 def list_files():
@@ -248,12 +234,18 @@ def list_files():
     <head>
         <title>Файлы</title>
         <style>
-            body { font-family: sans-serif; padding: 20px; }
-            table { border-collapse: collapse; width: 100%; }
-            th, td { padding: 8px; border: 1px solid #ddd; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            th { background-color: #f2f2f2; }
-            a.button { padding: 4px 10px; background: #f44336; color: white; text-decoration: none; border-radius: 4px; }
-            a.delete-all { margin-top: 15px; display: inline-block; background: #e91e63; }
+            body {{ font-family: sans-serif; padding: 20px; }}
+            table {{ border-collapse: collapse; width: 100%; }}
+            th, td {{ padding: 8px; border: 1px solid #ddd; max-width: 300px; }}
+            th {{ background-color: #f2f2f2; }}
+            a.button {{ padding: 4px 10px; background: #f44336; color: white; text-decoration: none; border-radius: 4px; }}
+            a.delete-all {{ margin-top: 15px; display: inline-block; background: #e91e63; }}
+            td.filename-cell {{
+                max-width: 400px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }}
         </style>
     </head>
     <body>
@@ -267,7 +259,7 @@ def list_files():
             </tr>
             {% for file in files %}
             <tr>
-                <td title="{{ file.name }}">{{ file.name }}</td>
+                <td class="filename-cell" title="{{ file.name }}">{{ file.name }}</td>
                 <td><a href="{{ file.url }}" target="_blank">Скачать</a></td>
                 <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm('Удалить {{ file.name }}?')">Удалить</a></td>
             </tr>
@@ -294,7 +286,13 @@ def delete_file(filename):
         os.remove(filepath)
         print(f"[ADMIN] Удалён файл: {filename}")
         return redirect(url_for('list_files', password=password))
-    return "Файл не найден", 404
+    return render_template_string(f'''
+        <div style="{COMMON_BG_STYLE}">
+            <h2>Файл не найден</h2>
+            <p>Невозможно удалить: файл не найден.</p>
+            <a href="/list?password={password}" style="color:#fff; text-decoration: underline; font-weight: bold;">Назад к списку файлов</a>
+        </div>
+    '''), 404
 
 @app.route('/delete_all')
 def delete_all_files():
@@ -310,7 +308,12 @@ def delete_all_files():
             deleted.append(f)
 
     print(f"[ADMIN] Удалены все файлы: {', '.join(deleted)}")
-    return f"Удалено файлов: {len(deleted)}<br><a href='/list?password={password}'>Назад</a>"
+    return render_template_string(f'''
+        <div style="{COMMON_BG_STYLE}">
+            <h2>Удалено файлов: {len(deleted)}</h2>
+            <a href="/list?password={password}" style="color:#fff; text-decoration: underline; font-weight: bold;">Назад к списку файлов</a>
+        </div>
+    ''')
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
