@@ -67,12 +67,7 @@ def serve_file(filename):
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
     if not os.path.exists(filepath) or not allowed_file(filename):
-        return render_template_string('''
-            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <h2>Файл удалён или не найден</h2>
-                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
-            </div>
-        '''), 404
+        return render_template_string(file_not_found_template()), 404
 
     if request.args.get("download") == "1":
         @after_this_request
@@ -85,14 +80,22 @@ def serve_file(filename):
                 print(f"[ERROR] Ошибка удаления после скачивания: {e}")
             return response
 
-        return render_template_string('''
-            <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                <h2>Файл загружен и удалён с сервера</h2>
-                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
-            </div>
-        ''')
+        return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True, download_name=filename)
 
-    html_template = '''
+    return render_template_string(download_template(), filename=filename)
+
+
+def file_not_found_template():
+    return '''
+    <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        <h2>Файл удалён или не найден</h2>
+        <p>Этот файл был скачан и удалён, или не существует.</p>
+        <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
+    </div>
+    '''
+
+def download_template():
+    return '''
     <!DOCTYPE html>
     <html>
     <head>
@@ -107,10 +110,11 @@ def serve_file(filename):
                 height: 100vh;
                 display: flex;
                 justify-content: center;
-                align-items: center;
+                align-items: flex-start;
                 margin: 0;
             }
             .container {
+                margin-top: 80px;
                 background: rgba(255, 255, 255, 0.15);
                 padding: 30px;
                 border-radius: 12px;
@@ -133,6 +137,9 @@ def serve_file(filename):
         <script>
             function downloadFile() {
                 window.location.href = '/files/{{ filename }}?download=1';
+                setTimeout(() => {
+                    window.location.href = '/downloaded';
+                }, 1000);
             }
             function decline() {
                 window.location.href = '/';
@@ -150,28 +157,111 @@ def serve_file(filename):
     </body>
     </html>
     '''
-    return render_template_string(html_template, filename=filename)
 
+@app.route('/downloaded')
+def downloaded():
+    return render_template_string('''
+        <div style="font-family:sans-serif; text-align:center; padding:50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <h2>Файл скачан и удалён с сервера</h2>
+            <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
+        </div>
+    ''')
 
-@app.route('/list', methods=['GET'])
+@app.route('/list')
 def list_files():
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
         return "Доступ запрещён", 403
 
+    for f in os.listdir(UPLOAD_FOLDER):
+        path = os.path.join(UPLOAD_FOLDER, f)
+        if os.path.isfile(path) and is_expired(path):
+            os.remove(path)
+
     files = [f for f in os.listdir(UPLOAD_FOLDER)
-             if os.path.isfile(os.path.join(UPLOAD_FOLDER, f))]
+             if os.path.isfile(os.path.join(UPLOAD_FOLDER, f)) and not f.startswith('.')]
 
     base_url = "https://" + request.host
     file_data = [
         {
             "name": f,
             "url": f"{base_url}/files/{f}",
+            "delete_url": f"/delete/{f}?password={password}"
         }
         for f in files
     ]
 
-    return jsonify(file_data)
+    html_template = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Файлы</title>
+        <style>
+            body { font-family: sans-serif; padding: 20px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { padding: 8px; border: 1px solid #ddd; }
+            th { background-color: #f2f2f2; }
+            a.button { padding: 4px 10px; background: #f44336; color: white; text-decoration: none; border-radius: 4px; }
+            a.delete-all { margin-top: 15px; display: inline-block; background: #e91e63; }
+        </style>
+    </head>
+    <body>
+        <h2>Загруженные файлы</h2>
+        {% if files %}
+        <table>
+            <tr>
+                <th>Имя</th>
+                <th>Скачать</th>
+                <th>Удалить</th>
+            </tr>
+            {% for file in files %}
+            <tr>
+                <td>{{ file.name }}</td>
+                <td><a href="{{ file.url }}" target="_blank">Скачать</a></td>
+                <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm('Удалить {{ file.name }}?')">Удалить</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>Нет файлов.</p>
+        {% endif %}
+
+        <a class="button delete-all" href="/delete_all?password={{ password }}" onclick="return confirm('Удалить все файлы?')">Удалить все</a>
+    </body>
+    </html>
+    """
+    return render_template_string(html_template, files=file_data, password=password)
+
+
+@app.route('/delete/<filename>')
+def delete_file(filename):
+    password = request.args.get("password", "")
+    if password != ADMIN_PASSWORD:
+        return "Неверный пароль", 403
+
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+        print(f"[ADMIN] Удалён файл: {filename}")
+        return redirect(url_for('list_files', password=password))
+    return "Файл не найден", 404
+
+
+@app.route('/delete_all')
+def delete_all_files():
+    password = request.args.get("password", "")
+    if password != ADMIN_PASSWORD:
+        return "Неверный пароль", 403
+
+    deleted = []
+    for f in os.listdir(UPLOAD_FOLDER):
+        path = os.path.join(UPLOAD_FOLDER, f)
+        if os.path.isfile(path) and not f.startswith('.'):
+            os.remove(path)
+            deleted.append(f)
+
+    print(f"[ADMIN] Удалены все файлы: {', '.join(deleted)}")
+    return f"Удалено файлов: {len(deleted)}<br><a href='/list?password={password}'>Назад</a>"
 
 
 if __name__ == "__main__":
