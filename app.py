@@ -34,31 +34,31 @@ COMMON_BG_STYLE = "background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)
 def home():
     return '''
     <div style="display:flex; height:100vh; justify-content:center; align-items:center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#eee; font-family:sans-serif; flex-direction:column;">
-        <h1>Ты на главной!</h1>
-        <p>Ничего лишнего.</p>
+        <h1>Main page</h1>
+        <p>nothing extra</p>
     </div>
     '''
 
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
-        return jsonify({"error": "Файл не найден"}), 400
+        return jsonify({"error": "File not found"}), 400
 
     file = request.files['file']
     original_filename = file.filename
 
     if not original_filename or not allowed_file(original_filename):
-        return jsonify({"error": "Недопустимый тип файла"}), 400
+        return jsonify({"error": "Invalid file type"}), 400
 
     filename = generate_unique_filename(original_filename)
     filepath = os.path.join(UPLOAD_FOLDER, filename)
 
     try:
         file.save(filepath)
-        print(f"[UPLOAD] Сохранён файл: {filename}")
+        print(f"[UPLOAD] File saved: {filename}")
     except Exception as e:
-        print(f"[ERROR] Ошибка при сохранении: {e}")
-        return jsonify({"error": f"Ошибка сохранения файла: {str(e)}"}), 500
+        print(f"[ERROR] Error while saving: {e}")
+        return jsonify({"error": f"Error saving file: {str(e)}"}), 500
 
     base_url = "https://" + request.host
     return jsonify({"url": f"{base_url}/files/{filename}"})
@@ -71,9 +71,9 @@ def serve_file(filename):
     if not os.path.exists(filepath) or not allowed_file(filename):
         return render_template_string('''
             <div style="{{ common_bg_style }}">
-                <h2>Файл удалён или не найден</h2>
-                <p>Этот файл был скачан и удалён, или не существует.</p>
-                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
+                <h2>File deleted or not found</h2>
+                <p>This file has been downloaded and deleted, or does not exist.</p>
+                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Return to home page</a>
             </div>
         ''', common_bg_style=COMMON_BG_STYLE), 404
 
@@ -81,18 +81,18 @@ def serve_file(filename):
         os.remove(filepath)
         return render_template_string('''
             <div style="{{ common_bg_style }}">
-                <h2>Файл удалён или не найден</h2>
-                <p>Срок хранения файла истёк, и он был удалён.</p>
-                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
+                <h2>File deleted or not found</h2>
+                <p>The file has expired and has been deleted..</p>
+                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Return to home page</a>
             </div>
         ''', common_bg_style=COMMON_BG_STYLE), 404
 
     if request.args.get("show_downloaded") == "1":
         return render_template_string('''
             <div style="{{ common_bg_style }}">
-                <h2>Файл скачан и удалён</h2>
-                <p>Спасибо! Файл был успешно загружен.</p>
-                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Вернуться на главную</a>
+                <h2>File downloaded and deleted</h2>
+                <p>Thank you! The file was successfully uploaded..</p>
+                <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Return to home page</a>
             </div>
         ''', common_bg_style=COMMON_BG_STYLE)
 
@@ -100,7 +100,7 @@ def serve_file(filename):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Файл для скачивания</title>
+        <title>File for download</title>
         <style>
             body {
                 {{ common_bg_style }}
@@ -177,9 +177,9 @@ def serve_file(filename):
     <body>
         <div class="container">
             <span class="filename" title="{{ filename }}">{{ filename }}</span>
-            <button class="download-btn" onclick="downloadFile()">Скачать</button>
-            <button class="decline-btn" onclick="decline()">Отмена</button>
-            <p class="note">Автоудаление файла после загрузки.</p>
+            <button class="download-btn" onclick="downloadFile()">Download</button>
+            <button class="decline-btn" onclick="decline()">Cancel</button>
+            <p class="note">Auto delete file after download.</p>
         </div>
     </body>
     </html>
@@ -191,9 +191,9 @@ def serve_file(filename):
             try:
                 if DELETE_AFTER_DOWNLOAD and os.path.exists(filepath):
                     os.remove(filepath)
-                    print(f"[INFO] Удалён файл после скачивания: {filename}")
+                    print(f"[INFO] File deleted after downloading: {filename}")
             except Exception as e:
-                print(f"[ERROR] Ошибка удаления после скачивания: {e}")
+                print(f"[ERROR] Error deleting after downloading: {e}")
             return response
 
         return send_from_directory(
@@ -210,7 +210,7 @@ def serve_file(filename):
 def list_files():
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
-        return "Доступ запрещён", 403
+        return "Access Denied", 403
 
     # Удаляем просроченные файлы
     for f in os.listdir(UPLOAD_FOLDER):
@@ -235,7 +235,7 @@ def list_files():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Файлы</title>
+        <title>Files</title>
         <style>
             body { font-family: sans-serif; padding: 20px; }
             table { border-collapse: collapse; width: 100%; }
@@ -252,27 +252,27 @@ def list_files():
         </style>
     </head>
     <body>
-        <h2>Загруженные файлы</h2>
+        <h2>Uploaded files</h2>
         {% if files %}
         <table>
             <tr>
-                <th>Имя</th>
-                <th>Скачать</th>
-                <th>Удалить</th>
+                <th>Name</th>
+                <th>Download</th>
+                <th>Delete</th>
             </tr>
             {% for file in files %}
             <tr>
                 <td class="filename-cell" title="{{ file.name }}">{{ file.name }}</td>
-                <td><a href="{{ file.url }}" target="_blank">Скачать</a></td>
-                <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm('Удалить {{ file.name }}?')">Удалить</a></td>
+                <td><a href="{{ file.url }}" target="_blank">Download</a></td>
+                <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm(‘Delete {{ file.name }}?')">Delete</a></td>
             </tr>
             {% endfor %}
         </table>
         {% else %}
-        <p>Нет файлов.</p>
+        <p>No files.</p>
         {% endif %}
 
-        <a class="button delete-all" href="/delete_all?password={{ password }}" onclick="return confirm('Удалить все файлы?')">Удалить все</a>
+        <a class="button delete-all" href="/delete_all?password={{ password }}" onclick="return confirm(‘Delete all files?’)»>Delete all</a>
     </body>
     </html>
     '''
@@ -282,18 +282,18 @@ def list_files():
 def delete_file(filename):
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
-        return "Неверный пароль", 403
+        return «Wrong password», 403
 
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     if os.path.exists(filepath):
         os.remove(filepath)
-        print(f"[ADMIN] Удалён файл: {filename}")
+        print(f"[ADMIN] File deleted: {filename}")
         return redirect(url_for('list_files', password=password))
     return render_template_string('''
         <div style="{{ common_bg_style }}">
-            <h2>Файл не найден</h2>
-            <p>Невозможно удалить: файл не найден.</p>
-            <a href="/list?password={{ password }}" style="color:#fff; text-decoration: underline; font-weight: bold;">Назад к списку файлов</a>
+            <h2>File not found</h2>
+            <p>Unable to delete: file not found.</p>
+            <a href="/list?password={{ password }}" style="color:#fff; text-decoration: underline; font-weight: bold;">Back to file list</a>
         </div>
     ''', common_bg_style=COMMON_BG_STYLE, password=password), 404
 
@@ -301,7 +301,7 @@ def delete_file(filename):
 def delete_all_files():
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
-        return "Неверный пароль", 403
+        return «Wrong password», 403
 
     deleted = []
     for f in os.listdir(UPLOAD_FOLDER):
@@ -310,11 +310,11 @@ def delete_all_files():
             os.remove(path)
             deleted.append(f)
 
-    print(f"[ADMIN] Удалены все файлы: {', '.join(deleted)}")
+    print(f"[ADMIN] All files have been deleted: {', '.join(deleted)}")
     return render_template_string('''
         <div style="{{ common_bg_style }}">
-            <h2>Удалено файлов: {{ count }}</h2>
-            <a href="/list?password={{ password }}" style="color:#fff; text-decoration: underline; font-weight: bold;">Назад к списку файлов</a>
+            <h2>Files removed: {{ count }}</h2>
+            <a href="/list?password={{ password }}" style="color:#fff; text-decoration: underline; font-weight: bold;">Back to file list</a>
         </div>
     ''', common_bg_style=COMMON_BG_STYLE, count=len(deleted), password=password)
 
