@@ -282,7 +282,7 @@ def list_files():
 def delete_file(filename):
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
-        return «Wrong password», 403
+        return "Wrong password", 403
 
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     if os.path.exists(filepath):
@@ -301,7 +301,7 @@ def delete_file(filename):
 def delete_all_files():
     password = request.args.get("password", "")
     if password != ADMIN_PASSWORD:
-        return «Wrong password», 403
+        return "Wrong password", 403
 
     deleted = []
     for f in os.listdir(UPLOAD_FOLDER):
