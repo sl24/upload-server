@@ -272,7 +272,7 @@ def list_files():
         <p>No files.</p>
         {% endif %}
 
-        <a class="button delete-all" href="/delete_all?password={{ password }}" onclick="return confirm(‘Delete all files?’)»>Delete all</a>
+        <a class="button delete-all" href="/delete_all?password={{ password }}" onclick="return confirm('Delete all files?')">Delete all</a>
     </body>
     </html>
     '''
