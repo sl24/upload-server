@@ -13,7 +13,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ADMIN_PASSWORD = "admin123"
 DELETE_AFTER_DAYS = 7
 DELETE_AFTER_DOWNLOAD = True
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mp3', 'pdf', 'txt', 'zip', 'rar', 'docx'}
 
@@ -40,132 +39,8 @@ def home():
     </div>
     '''
 
-@app.route('/upload', methods=['GET', 'POST'])
-def upload_page():
-    # Форма загрузки файла через браузер
-
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            error = "No file part"
-            return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
-
-        file = request.files['file']
-        if file.filename == '':
-            error = "No selected file"
-            return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
-
-        if not allowed_file(file.filename):
-            error = "Invalid file type"
-            return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
-
-        file.seek(0, os.SEEK_END)
-        file_length = file.tell()
-        file.seek(0)
-        if file_length > MAX_FILE_SIZE:
-            error = "File is too large (max 5MB)"
-            return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
-
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-
-        try:
-            file.save(filepath)
-            base_url = "https://" + request.host
-            file_url = f"{base_url}/files/{filename}"
-            success_msg = f"File uploaded successfully!<br><a href='{file_url}' target='_blank'>{file_url}</a>"
-            return render_template_string(upload_html, success=success_msg, common_bg_style=COMMON_BG_STYLE)
-        except Exception as e:
-            error = f"Error saving file: {str(e)}"
-            return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
-
-    # GET запрос — показать форму
-    return render_template_string(upload_html, common_bg_style=COMMON_BG_STYLE)
-
-upload_html = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Upload file</title>
-    <style>
-        body {
-            {{ common_bg_style }}
-            flex-direction: column;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 40vw;
-            width: 100%;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            overflow: hidden;
-            text-align: center;
-            margin: 0 auto;
-            color: white;
-        }
-        input[type=file] {
-            padding: 10px;
-            margin-bottom: 10px;
-            width: 100%;
-            border-radius: 5px;
-            border: none;
-        }
-        button {
-            padding: 12px 25px;
-            font-size: 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-            transition: background-color 0.3s ease;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .message {
-            margin-top: 15px;
-            font-size: 16px;
-        }
-        .error {
-            color: #ff6b6b;
-        }
-        a {
-            color: #c9d1ff;
-            word-break: break-all;
-            font-weight: bold;
-            text-decoration: underline;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>Upload file</h2>
-        <form method="post" enctype="multipart/form-data">
-            <input type="file" name="file" required>
-            <br>
-            <button type="submit">Upload</button>
-        </form>
-        {% if error %}
-            <div class="message error">{{ error }}</div>
-        {% endif %}
-        {% if success %}
-            <div class="message success">{{ success|safe }}</div>
-        {% endif %}
-        <p style="margin-top: 15px; font-style: italic; font-size: 14px;">Allowed types: {{ allowed_types }}. Max size: 5MB.</p>
-    </div>
-</body>
-</html>
-'''
-
-@app.context_processor
-def inject_allowed_types():
-    return dict(allowed_types=", ".join(sorted(ALLOWED_EXTENSIONS)))
-
-
 @app.route('/upload', methods=['POST'])
 def upload():
-    # Исходная загрузка через API (бот и т.п.) — оставлена без изменений
     if 'file' not in request.files:
         return jsonify({"error": "File not found"}), 400
 
@@ -389,7 +264,7 @@ def list_files():
             <tr>
                 <td class="filename-cell" title="{{ file.name }}">{{ file.name }}</td>
                 <td><a href="{{ file.url }}" target="_blank">Download</a></td>
-                <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm('Delete {{ file.name }}?')">Delete</a></td>
+                <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm(‘Delete {{ file.name }}?')">Delete</a></td>
             </tr>
             {% endfor %}
         </table>
