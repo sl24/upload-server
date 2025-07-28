@@ -13,7 +13,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ADMIN_PASSWORD = "admin123"
 DELETE_AFTER_DAYS = 7
 DELETE_AFTER_DOWNLOAD = True
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mp3', 'pdf', 'txt', 'zip', 'rar', 'docx'}
 
@@ -40,135 +39,9 @@ def home():
     </div>
     '''
 
-@app.route('/upload', methods=['GET', 'POST'])
-def upload_page():
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            error = "No file part"
-            return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
-
-        file = request.files['file']
-        if file.filename == '':
-            error = "No selected file"
-            return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
-
-        if not allowed_file(file.filename):
-            error = "Invalid file type"
-            return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
-
-        file.seek(0, os.SEEK_END)
-        file_length = file.tell()
-        file.seek(0)
-        if file_length > MAX_FILE_SIZE:
-            error = "File is too large (max 5MB)"
-            return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
-
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-
-        try:
-            file.save(filepath)
-            base_url = "https://" + request.host
-            file_url = f"{base_url}/files/{filename}"
-            # Вместо возврата страницы с сообщением — делаем редирект, передавая ссылку в параметрах
-            return redirect(url_for('upload_page', uploaded=file_url))
-        except Exception as e:
-            error = f"Error saving file: {str(e)}"
-            return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
-
-    # GET запрос — показать форму
-    success = None
-    uploaded_url = request.args.get('uploaded')
-    if uploaded_url:
-        success = f"File uploaded successfully!<br><a href='{uploaded_url}' target='_blank'>{uploaded_url}</a>"
-
-    return render_template_string(upload_html, success=success, common_bg_style=COMMON_BG_STYLE)
-
-upload_html = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Upload file</title>
-    <style>
-        body {
-            {{ common_bg_style }}
-            flex-direction: column;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 40vw;
-            width: 100%;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            overflow: hidden;
-            text-align: center;
-            margin: 0 auto;
-            color: white;
-        }
-        input[type=file] {
-            padding: 10px;
-            margin-bottom: 10px;
-            width: 100%;
-            border-radius: 5px;
-            border: none;
-        }
-        button {
-            padding: 12px 25px;
-            font-size: 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-            transition: background-color 0.3s ease;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .message {
-            margin-top: 15px;
-            font-size: 16px;
-        }
-        .error {
-            color: #ff6b6b;
-        }
-        a {
-            color: #c9d1ff;
-            word-break: break-all;
-            font-weight: bold;
-            text-decoration: underline;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>Upload file</h2>
-        <form method="post" enctype="multipart/form-data">
-            <input type="file" name="file" required>
-            <br>
-            <button type="submit">Upload</button>
-        </form>
-        {% if error %}
-            <div class="message error">{{ error }}</div>
-        {% endif %}
-        {% if success %}
-            <div class="message success">{{ success|safe }}</div>
-        {% endif %}
-        <p style="margin-top: 15px; font-style: italic; font-size: 14px;">Allowed types: {{ allowed_types }}. Max size: 5MB.</p>
-    </div>
-</body>
-</html>
-'''
-
-@app.context_processor
-def inject_allowed_types():
-    return dict(allowed_types=", ".join(sorted(ALLOWED_EXTENSIONS)))
-
-
-@app.route('/upload', methods=['POST'])
-def upload():
-    # Исходная загрузка через API (бот и т.п.) — оставлена без изменений
+# === API upload для бота (возвращает JSON) ===
+@app.route('/api/upload', methods=['POST'])
+def api_upload():
     if 'file' not in request.files:
         return jsonify({"error": "File not found"}), 400
 
@@ -183,13 +56,103 @@ def upload():
 
     try:
         file.save(filepath)
-        print(f"[UPLOAD] File saved: {filename}")
+        print(f"[API UPLOAD] File saved: {filename}")
     except Exception as e:
         print(f"[ERROR] Error while saving: {e}")
         return jsonify({"error": f"Error saving file: {str(e)}"}), 500
 
     base_url = "https://" + request.host
     return jsonify({"url": f"{base_url}/files/{filename}"})
+
+
+# === Веб-форма загрузки + отображение ссылки ===
+@app.route('/upload', methods=['GET', 'POST'])
+def web_upload():
+    if request.method == 'GET':
+        # Показать пустую форму
+        return render_template_string('''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Upload file</title>
+            <style>
+                body { {{ common_bg_style }} }
+                form { background: rgba(255, 255, 255, 0.15); padding: 30px; border-radius: 12px; max-width: 400px; margin: 50px auto; color: white; font-family: sans-serif; }
+                input[type=file] { margin-bottom: 10px; width: 100%; }
+                button { padding: 10px 20px; background-color: #4CAF50; border: none; border-radius: 5px; color: white; cursor: pointer; }
+                .result { margin-top: 20px; padding: 10px; background-color: rgba(0,0,0,0.3); border-radius: 5px; word-break: break-all; }
+            </style>
+        </head>
+        <body>
+            <form method="post" enctype="multipart/form-data">
+                <input type="file" name="file" required>
+                <button type="submit">Upload</button>
+            </form>
+        </body>
+        </html>
+        ''', common_bg_style=COMMON_BG_STYLE)
+
+    # POST - загрузка файла из браузера
+    if 'file' not in request.files:
+        return render_template_string('''
+            <div style="{{ common_bg_style }}">
+                <h2>Error</h2>
+                <p>No file found in request.</p>
+                <a href="/upload" style="color:#fff;">Back</a>
+            </div>
+        ''', common_bg_style=COMMON_BG_STYLE)
+
+    file = request.files['file']
+    original_filename = file.filename
+
+    if not original_filename or not allowed_file(original_filename):
+        return render_template_string('''
+            <div style="{{ common_bg_style }}">
+                <h2>Error</h2>
+                <p>Invalid file type.</p>
+                <a href="/upload" style="color:#fff;">Back</a>
+            </div>
+        ''', common_bg_style=COMMON_BG_STYLE)
+
+    # Ограничение размера 5 МБ
+    file.seek(0, os.SEEK_END)
+    file_length = file.tell()
+    file.seek(0)
+    if file_length > 5 * 1024 * 1024:
+        return render_template_string('''
+            <div style="{{ common_bg_style }}">
+                <h2>Error</h2>
+                <p>File size exceeds 5 MB limit.</p>
+                <a href="/upload" style="color:#fff;">Back</a>
+            </div>
+        ''', common_bg_style=COMMON_BG_STYLE)
+
+    filename = secure_filename(original_filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+
+    try:
+        file.save(filepath)
+        print(f"[WEB UPLOAD] File saved: {filename}")
+    except Exception as e:
+        return render_template_string('''
+            <div style="{{ common_bg_style }}">
+                <h2>Error</h2>
+                <p>Failed to save file: {{ error }}</p>
+                <a href="/upload" style="color:#fff;">Back</a>
+            </div>
+        ''', common_bg_style=COMMON_BG_STYLE, error=str(e))
+
+    base_url = "https://" + request.host
+    file_url = f"{base_url}/files/{filename}"
+
+    return render_template_string('''
+        <div style="{{ common_bg_style }}">
+            <h2>File uploaded successfully</h2>
+            <p>Download link:</p>
+            <div class="result"><a href="{{ file_url }}" style="color:#0ff;" target="_blank">{{ file_url }}</a></div>
+            <p><a href="/upload" style="color:#fff;">Upload another file</a></p>
+        </div>
+    ''', common_bg_style=COMMON_BG_STYLE, file_url=file_url)
 
 
 @app.route('/files/<filename>')
@@ -445,6 +408,7 @@ def delete_all_files():
             <a href="/list?password={{ password }}" style="color:#fff; text-decoration: underline; font-weight: bold;">Back to file list</a>
         </div>
     ''', common_bg_style=COMMON_BG_STYLE, count=len(deleted), password=password)
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
