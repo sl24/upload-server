@@ -42,8 +42,6 @@ def home():
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_page():
-    # Форма загрузки файла через браузер
-
     if request.method == 'POST':
         if 'file' not in request.files:
             error = "No file part"
@@ -72,14 +70,19 @@ def upload_page():
             file.save(filepath)
             base_url = "https://" + request.host
             file_url = f"{base_url}/files/{filename}"
-            success_msg = f"File uploaded successfully!<br><a href='{file_url}' target='_blank'>{file_url}</a>"
-            return render_template_string(upload_html, success=success_msg, common_bg_style=COMMON_BG_STYLE)
+            # Вместо возврата страницы с сообщением — делаем редирект, передавая ссылку в параметрах
+            return redirect(url_for('upload_page', uploaded=file_url))
         except Exception as e:
             error = f"Error saving file: {str(e)}"
             return render_template_string(upload_html, error=error, common_bg_style=COMMON_BG_STYLE)
 
     # GET запрос — показать форму
-    return render_template_string(upload_html, common_bg_style=COMMON_BG_STYLE)
+    success = None
+    uploaded_url = request.args.get('uploaded')
+    if uploaded_url:
+        success = f"File uploaded successfully!<br><a href='{uploaded_url}' target='_blank'>{uploaded_url}</a>"
+
+    return render_template_string(upload_html, success=success, common_bg_style=COMMON_BG_STYLE)
 
 upload_html = '''
 <!DOCTYPE html>
