@@ -114,7 +114,7 @@ def upload():
 
     base_url = "https://" + request.host
     # Если загрузка через форму браузера — перенаправим на страницу с ссылкой
-    if request.content_type.startswith('multipart/form-data'):
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
         return redirect(url_for('serve_file', filename=filename))
 
     # Если загрузка через API (например, бот) — отдадим JSON с url
@@ -143,6 +143,12 @@ def serve_file(filename):
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Return to home page</a>
             </div>
         ''', common_bg_style=COMMON_BG_STYLE), 404
+
+    # Ключевое исправление: если запрос принимает JSON, возвращаем JSON с url
+    accept_header = request.headers.get("Accept", "")
+    if "application/json" in accept_header:
+        base_url = "https://" + request.host
+        return jsonify({"url": f"{base_url}/files/{filename}"})
 
     if request.args.get("show_downloaded") == "1":
         return render_template_string('''
