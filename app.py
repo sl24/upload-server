@@ -36,13 +36,63 @@ def home():
     <div style="display:flex; height:100vh; justify-content:center; align-items:center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#eee; font-family:sans-serif; flex-direction:column;">
         <h1>Main page</h1>
         <p>nothing extra</p>
-        <p><a href="/upload_form" style="color:#eee; text-decoration: underline;">Upload file via browser</a></p>
     </div>
     '''
 
-# --- API для загрузки файла (бот и другие клиенты) ---
-@app.route('/upload', methods=['POST'])
+@app.route('/upload', methods=['GET', 'POST'])
 def upload():
+    if request.method == 'GET':
+        # Форма загрузки файла через браузер
+        return '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Upload file</title>
+            <style>
+                body {
+                    font-family: sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    height: 100vh;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                }
+                form {
+                    background: rgba(255, 255, 255, 0.15);
+                    padding: 30px;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+                    text-align: center;
+                }
+                input[type=file] {
+                    margin-bottom: 15px;
+                }
+                input[type=submit] {
+                    padding: 10px 20px;
+                    background-color: #4CAF50;
+                    border: none;
+                    border-radius: 5px;
+                    color: white;
+                    cursor: pointer;
+                    font-size: 16px;
+                }
+                input[type=submit]:hover {
+                    background-color: #45a049;
+                }
+            </style>
+        </head>
+        <body>
+            <form method="post" enctype="multipart/form-data">
+                <h2>Upload file</h2>
+                <input type="file" name="file" required><br>
+                <input type="submit" value="Upload">
+            </form>
+        </body>
+        </html>
+        '''
+
+    # POST-запрос — загрузка файла
     if 'file' not in request.files:
         return jsonify({"error": "File not found"}), 400
 
@@ -62,112 +112,14 @@ def upload():
         print(f"[ERROR] Error while saving: {e}")
         return jsonify({"error": f"Error saving file: {str(e)}"}), 500
 
-    base_url = request.url_root.rstrip('/')
-    file_url = f"{base_url}/files/{filename}"
+    base_url = "https://" + request.host
+    # Если загрузка через форму браузера — перенаправим на страницу с ссылкой
+    if request.content_type.startswith('multipart/form-data'):
+        return redirect(url_for('serve_file', filename=filename))
 
-    # ВСЕГДА возвращаем JSON с url для скачивания
-    return jsonify({"url": file_url})
+    # Если загрузка через API (например, бот) — отдадим JSON с url
+    return jsonify({"url": f"{base_url}/files/{filename}"})
 
-# --- Веб-форма загрузки для браузера ---
-@app.route('/upload_form', methods=['GET', 'POST'])
-def upload_form():
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            return render_template_string(FORM_HTML, error="File not found")
-
-        file = request.files['file']
-        original_filename = file.filename
-
-        if not original_filename or not allowed_file(original_filename):
-            return render_template_string(FORM_HTML, error="Invalid file type")
-
-        filename = generate_unique_filename(original_filename)
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-
-        try:
-            file.save(filepath)
-            print(f"[UPLOAD FORM] File saved: {filename}")
-            base_url = request.url_root.rstrip('/')
-            file_url = f"{base_url}/files/{filename}"
-            return render_template_string(FORM_HTML, success=True, file_url=file_url)
-        except Exception as e:
-            print(f"[ERROR] Error while saving: {e}")
-            return render_template_string(FORM_HTML, error=f"Error saving file: {str(e)}")
-
-    return render_template_string(FORM_HTML)
-
-
-FORM_HTML = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Upload file</title>
-    <style>
-        body {
-            {{ common_bg_style }}
-            flex-direction: column;
-            justify-content: flex-start;
-            padding-top: 40px;
-        }
-        .container {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 40vw;
-            width: 100%;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            overflow: hidden;
-            text-align: center;
-            margin: 0 auto;
-            color: white;
-        }
-        input[type="file"] {
-            margin: 15px 0;
-        }
-        input[type="submit"] {
-            padding: 12px 25px;
-            font-size: 16px;
-            border: none;
-            border-radius: 5px;
-            background-color: #4CAF50;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-        input[type="submit"]:hover {
-            background-color: #45a049;
-        }
-        .message {
-            margin-top: 20px;
-            font-weight: bold;
-        }
-        a.link {
-            color: #ffd700;
-            text-decoration: underline;
-            word-break: break-all;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>Upload file</h2>
-        <form method="POST" enctype="multipart/form-data">
-            <input type="file" name="file" required>
-            <br>
-            <input type="submit" value="Upload">
-        </form>
-        {% if error %}
-        <p class="message" style="color: #f44336;">{{ error }}</p>
-        {% endif %}
-        {% if success %}
-        <p class="message">File uploaded successfully!</p>
-        <p>Download link:<br><a class="link" href="{{ file_url }}" target="_blank">{{ file_url }}</a></p>
-        {% endif %}
-        <p><a href="/" style="color:#fff; text-decoration: underline;">Back to home</a></p>
-    </div>
-</body>
-</html>
-'''
 
 @app.route('/files/<filename>')
 def serve_file(filename):
@@ -196,7 +148,7 @@ def serve_file(filename):
         return render_template_string('''
             <div style="{{ common_bg_style }}">
                 <h2>File downloaded and deleted</h2>
-                <p>Thank you! The file was successfully downloaded.</p>
+                <p>Thank you! The file was successfully uploaded.</p>
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Return to home page</a>
             </div>
         ''', common_bg_style=COMMON_BG_STYLE)
@@ -310,7 +262,6 @@ def serve_file(filename):
 
     return render_template_string(html_template, filename=filename, common_bg_style=COMMON_BG_STYLE)
 
-
 @app.route('/list', methods=['GET'])
 def list_files():
     password = request.args.get("password", "")
@@ -326,7 +277,7 @@ def list_files():
     files = [f for f in os.listdir(UPLOAD_FOLDER)
              if os.path.isfile(os.path.join(UPLOAD_FOLDER, f)) and not f.startswith('.')]
 
-    base_url = request.url_root.rstrip('/')
+    base_url = "https://" + request.host
     file_data = [
         {
             "name": f,
