@@ -39,16 +39,101 @@ def home():
     </div>
     '''
 
-@app.route('/upload', methods=['POST'])
+# Новый GET /upload — форма загрузки и показ ссылки после загрузки
+@app.route('/upload', methods=['GET', 'POST'])
 def upload():
+    if request.method == 'GET':
+        uploaded_filename = request.args.get("uploaded", None)
+        base_url = "https://" + request.host
+        file_url = f"{base_url}/files/{uploaded_filename}" if uploaded_filename else None
+
+        html_form = '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Upload File</title>
+            <style>
+                body {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    font-family: sans-serif;
+                    height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                    margin: 0;
+                    padding: 20px;
+                }
+                form {
+                    background: rgba(255, 255, 255, 0.15);
+                    padding: 30px;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+                    text-align: center;
+                }
+                input[type=file] {
+                    margin-bottom: 20px;
+                    color: #fff;
+                }
+                button {
+                    padding: 12px 25px;
+                    font-size: 16px;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    background-color: #4CAF50;
+                    color: white;
+                    transition: background-color 0.3s ease;
+                }
+                button:hover {
+                    background-color: #45a049;
+                }
+                .result {
+                    margin-top: 20px;
+                    font-size: 16px;
+                    word-break: break-all;
+                }
+                a.link {
+                    color: #ffeb3b;
+                    font-weight: bold;
+                    text-decoration: underline;
+                }
+            </style>
+        </head>
+        <body>
+            <form method="POST" enctype="multipart/form-data">
+                <input type="file" name="file" required>
+                <br>
+                <button type="submit">Upload</button>
+            </form>
+            {% if file_url %}
+            <div class="result">
+                File uploaded!<br>
+                <a class="link" href="{{ file_url }}" target="_blank">{{ file_url }}</a>
+            </div>
+            {% endif %}
+        </body>
+        </html>
+        '''
+        return render_template_string(html_form, file_url=file_url)
+
+    # POST: обработка загрузки файла
     if 'file' not in request.files:
-        return jsonify({"error": "File not found"}), 400
+        # Если от API - JSON, если от браузера - HTML
+        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+            return jsonify({"error": "File not found"}), 400
+        else:
+            return render_template_string('<p style="color:red;">File not found in the request.</p>'), 400
 
     file = request.files['file']
     original_filename = file.filename
 
     if not original_filename or not allowed_file(original_filename):
-        return jsonify({"error": "Invalid file type"}), 400
+        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+            return jsonify({"error": "Invalid file type"}), 400
+        else:
+            return render_template_string('<p style="color:red;">Invalid file type.</p>'), 400
 
     filename = generate_unique_filename(original_filename)
     filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -58,11 +143,21 @@ def upload():
         print(f"[UPLOAD] File saved: {filename}")
     except Exception as e:
         print(f"[ERROR] Error while saving: {e}")
-        return jsonify({"error": f"Error saving file: {str(e)}"}), 500
+        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+            return jsonify({"error": f"Error saving file: {str(e)}"}), 500
+        else:
+            return render_template_string(f'<p style="color:red;">Error saving file: {str(e)}</p>'), 500
 
+    # Если запрос с браузера - редирект на GET с параметром uploaded=filename
+    if not (request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html):
+        return redirect(url_for('upload', uploaded=filename))
+
+    # Иначе — возвращаем JSON (боту)
     base_url = "https://" + request.host
     return jsonify({"url": f"{base_url}/files/{filename}"})
 
+
+# Ниже — твои текущие обработчики (serve_file, list_files, delete_file и т.д.) без изменений
 
 @app.route('/files/<filename>')
 def serve_file(filename):
@@ -205,6 +300,7 @@ def serve_file(filename):
 
     return render_template_string(html_template, filename=filename, common_bg_style=COMMON_BG_STYLE)
 
+# ... остальные роуты list, delete, delete_all без изменений ...
 
 @app.route('/list', methods=['GET'])
 def list_files():
@@ -264,7 +360,7 @@ def list_files():
             <tr>
                 <td class="filename-cell" title="{{ file.name }}">{{ file.name }}</td>
                 <td><a href="{{ file.url }}" target="_blank">Download</a></td>
-                <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm(‘Delete {{ file.name }}?')">Delete</a></td>
+                <td><a class="button" href="{{ file.delete_url }}" onclick="return confirm('Delete {{ file.name }}?')">Delete</a></td>
             </tr>
             {% endfor %}
         </table>
