@@ -92,7 +92,6 @@ def upload():
         </html>
         '''
 
-    # POST-запрос — загрузка файла
     if 'file' not in request.files:
         return jsonify({"error": "File not found"}), 400
 
@@ -113,12 +112,14 @@ def upload():
         return jsonify({"error": f"Error saving file: {str(e)}"}), 500
 
     base_url = "https://" + request.host
-    # Если загрузка через форму браузера — перенаправим на страницу с ссылкой
-    if request.content_type and request.content_type.startswith('multipart/form-data'):
-        return redirect(url_for('serve_file', filename=filename))
 
-    # Если загрузка через API (например, бот) — отдадим JSON с url
-    return jsonify({"url": f"{base_url}/files/{filename}"})
+    # Исправленный блок — проверяем Accept
+    if 'application/json' in request.headers.get('Accept', ''):
+        # Если запрос API (бот) — возвращаем JSON с ссылкой
+        return jsonify({"url": f"{base_url}/files/{filename}"})
+    else:
+        # Иначе (браузер) — редирект на страницу с файлом
+        return redirect(url_for('serve_file', filename=filename))
 
 
 @app.route('/files/<filename>')
@@ -143,12 +144,6 @@ def serve_file(filename):
                 <a href="/" style="color:#fff; text-decoration: underline; font-weight: bold;">Return to home page</a>
             </div>
         ''', common_bg_style=COMMON_BG_STYLE), 404
-
-    # Ключевое исправление: если запрос принимает JSON, возвращаем JSON с url
-    accept_header = request.headers.get("Accept", "")
-    if "application/json" in accept_header:
-        base_url = "https://" + request.host
-        return jsonify({"url": f"{base_url}/files/{filename}"})
 
     if request.args.get("show_downloaded") == "1":
         return render_template_string('''
