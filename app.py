@@ -118,8 +118,7 @@ def upload():
         return redirect(url_for('serve_file', filename=filename))
 
     # Если загрузка через API (например, бот) — отдадим JSON с url
-    return jsonify({"url": f"{base_url}/files/{filename}"})
-
+    return f"{base_url}/files/{filename}"
 
 @app.route('/files/<filename>')
 def serve_file(filename):
